@@ -344,62 +344,175 @@ function clearAll() {
     setClickMode('start');
 }
 
+// ===== GPS KALMAN FILTER =====
+// Простой 1D Kalman filter для lat и lon независимо.
+// Q — шум процесса (насколько быстро меняется позиция), R — шум измерения (accuracy²).
+class GpsKalmanFilter {
+    constructor(Q = 3e-6) {
+        this.Q = Q;   // дисперсия процесса (движение пользователя)
+        // Состояние для lat и lon
+        this.lat = null; this.lon = null;
+        this.P_lat = 1;  this.P_lon = 1; // ковариация ошибки
+    }
+
+    update(lat, lon, accuracy) {
+        // R — дисперсия измерения (квадрат точности GPS в градусах)
+        // accuracy в метрах → ~1e-5 градуса на метр
+        const R = Math.pow(accuracy * 1e-5, 2);
+
+        if (this.lat === null) {
+            // Инициализация первым измерением
+            this.lat = lat; this.lon = lon;
+            this.P_lat = R;  this.P_lon = R;
+            return { lat, lon };
+        }
+
+        // Predict (процесс не меняется — стационарная модель)
+        const P_lat_pred = this.P_lat + this.Q;
+        const P_lon_pred = this.P_lon + this.Q;
+
+        // Update — Kalman gain
+        const K_lat = P_lat_pred / (P_lat_pred + R);
+        const K_lon = P_lon_pred / (P_lon_pred + R);
+
+        this.lat = this.lat + K_lat * (lat - this.lat);
+        this.lon = this.lon + K_lon * (lon - this.lon);
+        this.P_lat = (1 - K_lat) * P_lat_pred;
+        this.P_lon = (1 - K_lon) * P_lon_pred;
+
+        return { lat: this.lat, lon: this.lon };
+    }
+
+    reset() {
+        this.lat = null; this.lon = null;
+        this.P_lat = 1;  this.P_lon = 1;
+    }
+}
+
 // ===== LOCATE ME =====
+let locateWatchId   = null;  // watchPosition ID во время поиска
+const locateKalman  = new GpsKalmanFilter();
+const LOCATE_SAMPLES = 6;    // сколько показаний собираем
+const LOCATE_TIMEOUT = 12000; // максимум ждём 12 секунд
+
 function locateMe() {
     if (!navigator.geolocation) {
         alert('Геолокация не поддерживается вашим браузером');
         return;
     }
 
+    // Если уже идёт поиск — отменяем
+    if (locateWatchId !== null) {
+        navigator.geolocation.clearWatch(locateWatchId);
+        locateWatchId = null;
+        const btn = document.getElementById('locateBtn');
+        btn.classList.remove('locating');
+        btn.disabled = false;
+        document.getElementById('locateBtnIcon').textContent = '📍';
+        return;
+    }
+
     const btn = document.getElementById('locateBtn');
     btn.classList.add('locating');
-    btn.disabled = true;
+    btn.disabled = false; // оставляем кликабельным для отмены
+    document.getElementById('locateBtnIcon').textContent = '⏳';
 
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            const accuracy = pos.coords.accuracy;
+    locateKalman.reset();
+    let samples = 0;
+    let bestAccuracy = Infinity;
+    let timeoutId = null;
 
-            // Плавный перелёт к моей позиции
-            map.flyTo([lat, lon], 16, {
-                animate: true,
-                duration: 1.5,
-                easeLinearity: 0.25
-            });
+    function finish(lat, lon, accuracy) {
+        if (locateWatchId !== null) {
+            navigator.geolocation.clearWatch(locateWatchId);
+            locateWatchId = null;
+        }
+        if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
 
-            // Обновляем или создаём маркер моей позиции
-            if (!myLocMarker) {
-                myLocMarker = L.marker([lat, lon], { icon: myIcon })
-                    .addTo(map)
-                    .bindPopup(`<b>📍 Я здесь</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}<br>Точность: ±${Math.round(accuracy)}м`);
-            } else {
-                myLocMarker.setLatLng([lat, lon]);
-                myLocMarker.getPopup().setContent(
-                    `<b>📍 Я здесь</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}<br>Точность: ±${Math.round(accuracy)}м`
-                );
-            }
+        btn.classList.remove('locating');
+        document.getElementById('locateBtnIcon').textContent = '📍';
 
-            // Открываем попап после завершения анимации
-            map.once('moveend', () => {
-                myLocMarker.openPopup();
-            });
+        // Плавный перелёт к отфильтрованной позиции
+        map.flyTo([lat, lon], 16, {
+            animate: true,
+            duration: 1.6,
+            easeLinearity: 0.2
+        });
 
-            btn.classList.remove('locating');
-            btn.disabled = false;
-        },
-        (err) => {
-            btn.classList.remove('locating');
-            btn.disabled = false;
-            const msgs = {
-                1: 'Доступ к геолокации запрещён',
-                2: 'Позиция недоступна',
-                3: 'Превышено время ожидания'
-            };
-            alert(msgs[err.code] || 'Ошибка геолокации');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
-    );
+        // Обновляем или создаём маркер
+        const popupContent = `
+            <b>📍 Я здесь</b><br>
+            ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>
+            <span style="color:#888;font-size:0.8em">Точность: ±${Math.round(accuracy)}м • Kalman (${samples} изм.)</span>
+        `;
+        if (!myLocMarker) {
+            myLocMarker = L.marker([lat, lon], { icon: myIcon })
+                .addTo(map)
+                .bindPopup(popupContent);
+        } else {
+            myLocMarker.setLatLng([lat, lon]);
+            myLocMarker.setPopupContent(popupContent);
+        }
+
+        map.once('moveend', () => myLocMarker.openPopup());
+    }
+
+    function onPosition(pos) {
+        const { latitude, longitude, accuracy } = pos.coords;
+
+        // Игнорируем очень плохие показания (>200м)
+        if (accuracy > 200) return;
+
+        // Применяем Kalman filter
+        const filtered = locateKalman.update(latitude, longitude, accuracy);
+        samples++;
+
+        if (accuracy < bestAccuracy) bestAccuracy = accuracy;
+
+        // Обновляем маркер в реальном времени во время накопления
+        if (myLocMarker) {
+            myLocMarker.setLatLng([filtered.lat, filtered.lon]);
+        } else {
+            myLocMarker = L.marker([filtered.lat, filtered.lon], { icon: myIcon })
+                .addTo(map);
+        }
+
+        // Заканчиваем когда набрали достаточно показаний или очень хорошая точность
+        if (samples >= LOCATE_SAMPLES || accuracy <= 10) {
+            finish(filtered.lat, filtered.lon, bestAccuracy);
+        }
+    }
+
+    function onError(err) {
+        if (locateWatchId !== null) {
+            navigator.geolocation.clearWatch(locateWatchId);
+            locateWatchId = null;
+        }
+        if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+        btn.classList.remove('locating');
+        document.getElementById('locateBtnIcon').textContent = '📍';
+        const msgs = {
+            1: 'Доступ к геолокации запрещён. Разрешите доступ в настройках браузера.',
+            2: 'Позиция недоступна',
+            3: 'Превышено время ожидания'
+        };
+        alert(msgs[err.code] || 'Ошибка геолокации');
+    }
+
+    // Таймаут — если за 12 секунд не набрали нужно показаний, берём что есть
+    timeoutId = setTimeout(() => {
+        if (locateKalman.lat !== null) {
+            finish(locateKalman.lat, locateKalman.lon, bestAccuracy);
+        } else {
+            onError({ code: 3 });
+        }
+    }, LOCATE_TIMEOUT);
+
+    locateWatchId = navigator.geolocation.watchPosition(onPosition, onError, {
+        enableHighAccuracy: true,
+        timeout: LOCATE_TIMEOUT,
+        maximumAge: 0  // всегда свежие данные
+    });
 }
 
 // ===== MQTT GEOLOCATION =====
