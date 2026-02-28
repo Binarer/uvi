@@ -17,7 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -38,21 +38,23 @@ public class AuthService {
     @Transactional
     public void sendCode(String phoneNumber) {
         String code = String.format("%06d", (int)(Math.random() * 1_000_000));
-        String hash = passwordEncoder.encode(code);
-        Instant expiry = Instant.now().plusSeconds(300); // 5 минут
+        LocalDateTime expiry = LocalDateTime.now().plusMinutes(5);
 
-        smsVerificationRepository.findByPhoneNumber(phoneNumber)
+        // Обновляем существующую запись или создаём новую
+        smsVerificationRepository
+                .findLatestUnverifiedByPhoneNumber(phoneNumber, LocalDateTime.now())
                 .ifPresentOrElse(
                         existing -> {
-                            existing.setCodeHash(hash);
+                            existing.setCode(passwordEncoder.encode(code));
                             existing.setExpiresAt(expiry);
                             existing.setVerified(false);
+                            existing.setAttempts(0);
                             smsVerificationRepository.save(existing);
                         },
                         () -> smsVerificationRepository.save(
                                 SmsVerification.builder()
                                         .phoneNumber(phoneNumber)
-                                        .codeHash(hash)
+                                        .code(passwordEncoder.encode(code))
                                         .expiresAt(expiry)
                                         .verified(false)
                                         .build()
@@ -71,18 +73,26 @@ public class AuthService {
     @Transactional
     public AuthResponse verifyCode(String phoneNumber, String code, String deviceInfo) {
         SmsVerification verification = smsVerificationRepository
-                .findByPhoneNumber(phoneNumber)
-                .orElseThrow(() -> new IllegalArgumentException("Код не найден. Запросите новый."));
+                .findLatestUnverifiedByPhoneNumber(phoneNumber, LocalDateTime.now())
+                .orElseThrow(() -> new IllegalArgumentException("Код не найден или истёк. Запросите новый."));
 
-        if (verification.getExpiresAt().isBefore(Instant.now())) {
+        if (verification.isExpired()) {
             throw new IllegalArgumentException("Код истёк. Запросите новый.");
         }
 
-        if (!passwordEncoder.matches(code, verification.getCodeHash())) {
+        if (!verification.canAttempt()) {
+            throw new IllegalArgumentException("Превышено количество попыток. Запросите новый код.");
+        }
+
+        verification.incrementAttempts();
+
+        if (!passwordEncoder.matches(code, verification.getCode())) {
+            smsVerificationRepository.save(verification);
             throw new IllegalArgumentException("Неверный код верификации.");
         }
 
         verification.setVerified(true);
+        verification.setVerifiedAt(LocalDateTime.now());
         smsVerificationRepository.save(verification);
 
         // Найти или создать пользователя

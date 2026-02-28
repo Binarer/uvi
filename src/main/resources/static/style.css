@@ -65,6 +65,39 @@ input:focus { outline: none; border-color: #555; background: #1a1a1a; }
 .stat .val { font-weight: 700; color: #bbb; }
 .spinner { display: none; text-align: center; padding: 16px; color: #555; font-size: 0.83rem; }
 
+/* Locate me button */
+.btn-locate {
+    width: 100%;
+    padding: 11px;
+    background: #1e1e1e;
+    color: #bbb;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.02em;
+}
+
+.btn-locate:hover { background: #252525; border-color: #555; color: #ddd; }
+.btn-locate:active { transform: scale(0.98); }
+.btn-locate.locating { border-color: #6a6; color: #6a6; }
+
+@keyframes pulse-locate {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(1.3); }
+}
+
+.btn-locate.locating #locateBtnIcon {
+    display: inline-block;
+    animation: pulse-locate 1s ease-in-out infinite;
+}
+
 /* MQTT status */
 .mqtt-status { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #555; }
 .mqtt-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; transition: background 0.3s; }

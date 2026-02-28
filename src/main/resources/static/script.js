@@ -344,6 +344,64 @@ function clearAll() {
     setClickMode('start');
 }
 
+// ===== LOCATE ME =====
+function locateMe() {
+    if (!navigator.geolocation) {
+        alert('Геолокация не поддерживается вашим браузером');
+        return;
+    }
+
+    const btn = document.getElementById('locateBtn');
+    btn.classList.add('locating');
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const accuracy = pos.coords.accuracy;
+
+            // Плавный перелёт к моей позиции
+            map.flyTo([lat, lon], 16, {
+                animate: true,
+                duration: 1.5,
+                easeLinearity: 0.25
+            });
+
+            // Обновляем или создаём маркер моей позиции
+            if (!myLocMarker) {
+                myLocMarker = L.marker([lat, lon], { icon: myIcon })
+                    .addTo(map)
+                    .bindPopup(`<b>📍 Я здесь</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}<br>Точность: ±${Math.round(accuracy)}м`);
+            } else {
+                myLocMarker.setLatLng([lat, lon]);
+                myLocMarker.getPopup().setContent(
+                    `<b>📍 Я здесь</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}<br>Точность: ±${Math.round(accuracy)}м`
+                );
+            }
+
+            // Открываем попап после завершения анимации
+            map.once('moveend', () => {
+                myLocMarker.openPopup();
+            });
+
+            btn.classList.remove('locating');
+            btn.disabled = false;
+        },
+        (err) => {
+            btn.classList.remove('locating');
+            btn.disabled = false;
+            const msgs = {
+                1: 'Доступ к геолокации запрещён',
+                2: 'Позиция недоступна',
+                3: 'Превышено время ожидания'
+            };
+            alert(msgs[err.code] || 'Ошибка геолокации');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+}
+
 // ===== MQTT GEOLOCATION =====
 function setMqttStatus(state, text) {
     const dot = document.getElementById('mqttDot');
