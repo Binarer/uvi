@@ -1,9 +1,8 @@
 package org.example.uvi.App.Infrastructure.Security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -11,55 +10,62 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-/**
- * Сервис для генерации и валидации JWT-токенов.
- * Токен содержит sub=userId (Long), claim "phone".
- */
 @Service
+@Slf4j
 public class JwtService {
 
-    private final SecretKey secretKey;
-    private final long expirationMs;
+    @Value("${jwt.secret}")
+    private String secret;
 
-    public JwtService(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration-ms:86400000}") long expirationMs) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationMs = expirationMs;
+    // Access token: короткоживущий (15 минут)
+    @Value("${jwt.access-expiration:900000}")
+    private long accessExpirationMs;
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Long userId, String phoneNumber) {
+    public String generateAccessToken(Long userId, String phoneNumber) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + accessExpirationMs);
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("phone", phoneNumber)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(secretKey)
+                .claim("type", "access")
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(getSigningKey())
                 .compact();
     }
 
     public Long extractUserId(String token) {
-        return Long.parseLong(extractClaims(token).getSubject());
+        return Long.parseLong(getClaims(token).getSubject());
     }
 
     public String extractPhone(String token) {
-        return extractClaims(token).get("phone", String.class);
+        return getClaims(token).get("phone", String.class);
     }
 
     public boolean isValid(String token) {
         try {
-            Claims claims = extractClaims(token);
-            return claims.getExpiration().after(new Date());
+            Claims claims = getClaims(token);
+            if (!"access".equals(claims.get("type", String.class))) return false;
+            return !claims.getExpiration().before(new Date());
         } catch (JwtException | IllegalArgumentException e) {
+            log.debug("Invalid JWT token: {}", e.getMessage());
             return false;
         }
     }
 
-    private Claims extractClaims(String token) {
+    private Claims getClaims(String token) {
         return Jwts.parser()
-                .verifyWith(secretKey)
+                .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    public long getAccessExpirationMs() {
+        return accessExpirationMs;
     }
 }

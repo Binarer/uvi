@@ -13,7 +13,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.locationtech.jts.geom.Point;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -68,6 +70,19 @@ public class Place {
 
     @Column(name = "image_url", length = 1000)
     private String imageUrl;
+
+    @Column(name = "main_photo_url", length = 1000)
+    private String mainPhotoUrl;
+
+    @ElementCollection
+    @CollectionTable(name = "place_photos", joinColumns = @JoinColumn(name = "place_id"))
+    @Column(name = "photo_url", length = 1000)
+    @Builder.Default
+    private List<String> photos = new ArrayList<>();
+
+    @Column(name = "color", length = 7)
+    @Builder.Default
+    private String color = "#22C55E";
 
     @Column(name = "website_url", length = 500)
     private String websiteUrl;

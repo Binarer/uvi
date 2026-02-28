@@ -3,6 +3,8 @@ package org.example.uvi.App.Infrastructure.Http.Dto;
 import jakarta.validation.constraints.*;
 import org.example.uvi.App.Domain.Enums.PlaceType.PlaceType;
 
+import java.util.List;
+
 public record CreatePlaceRequest(
         @NotBlank(message = "Place name is required")
         @Size(min = 1, max = 200, message = "Name must be between 1 and 200 characters")
@@ -27,6 +29,12 @@ public record CreatePlaceRequest(
         Double longitude,
 
         String imageUrl,
+        String mainPhotoUrl,
+        List<String> photos,
+
+        @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Invalid color format")
+        String color,
+
         String websiteUrl,
 
         @Pattern(regexp = "^\\+?[0-9\\s\\-().]{7,25}$", message = "Invalid phone number format")

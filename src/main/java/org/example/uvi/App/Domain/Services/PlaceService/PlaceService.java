@@ -53,7 +53,8 @@ public class PlaceService {
     public Place createPlace(Long creatorId, String name, String description,
                              PlaceType type, String address,
                              double latitude, double longitude,
-                             String imageUrl, String websiteUrl, String phoneNumber) {
+                             String imageUrl, String mainPhotoUrl, List<String> photos,
+                             String color, String websiteUrl, String phoneNumber) {
         User creator = userService.getUserById(creatorId);
         Point location = geometryFactory.createPoint(new Coordinate(longitude, latitude));
 
@@ -67,6 +68,9 @@ public class PlaceService {
                 .longitude(longitude)
                 .createdBy(creator)
                 .imageUrl(imageUrl)
+                .mainPhotoUrl(mainPhotoUrl)
+                .photos(photos != null ? photos : new java.util.ArrayList<>())
+                .color(color)
                 .websiteUrl(websiteUrl)
                 .phoneNumber(phoneNumber)
                 .isActive(true)
@@ -80,7 +84,8 @@ public class PlaceService {
     public Place updatePlace(Long id, String name, String description,
                              PlaceType type, String address,
                              Double latitude, Double longitude,
-                             String imageUrl, String websiteUrl, String phoneNumber) {
+                             String imageUrl, String mainPhotoUrl, List<String> photos,
+                             String color, String websiteUrl, String phoneNumber) {
         Place place = getPlaceById(id);
 
         if (name != null) place.setName(name);
@@ -88,6 +93,9 @@ public class PlaceService {
         if (type != null) place.setType(type);
         if (address != null) place.setAddress(address);
         if (imageUrl != null) place.setImageUrl(imageUrl);
+        if (mainPhotoUrl != null) place.setMainPhotoUrl(mainPhotoUrl);
+        if (photos != null) place.setPhotos(photos);
+        if (color != null) place.setColor(color);
         if (websiteUrl != null) place.setWebsiteUrl(websiteUrl);
         if (phoneNumber != null) place.setPhoneNumber(phoneNumber);
 

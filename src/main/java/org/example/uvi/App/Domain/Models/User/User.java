@@ -72,6 +72,13 @@ public class User {
     @Column
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "two_factor_secret", length = 32)
+    private String twoFactorSecret;
+
+    @Column(name = "two_factor_enabled", nullable = false)
+    @Builder.Default
+    private Boolean twoFactorEnabled = false;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -36,7 +36,8 @@ public class PlaceController {
         Place place = placeService.createPlace(
                 userId, request.name(), request.description(), request.type(),
                 request.address(), request.latitude(), request.longitude(),
-                request.imageUrl(), request.websiteUrl(), request.phoneNumber());
+                request.imageUrl(), request.mainPhotoUrl(), request.photos(),
+                request.color(), request.websiteUrl(), request.phoneNumber());
         return ResponseEntity.status(HttpStatus.CREATED).body(placeMapper.toDto(place));
     }
 
@@ -64,7 +65,8 @@ public class PlaceController {
         Place place = placeService.updatePlace(
                 id, request.name(), request.description(), request.type(),
                 request.address(), request.latitude(), request.longitude(),
-                request.imageUrl(), request.websiteUrl(), request.phoneNumber());
+                request.imageUrl(), request.mainPhotoUrl(), request.photos(),
+                request.color(), request.websiteUrl(), request.phoneNumber());
         return ResponseEntity.ok(placeMapper.toDto(place));
     }
 
@@ -75,29 +77,23 @@ public class PlaceController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/nearby")
+    @PostMapping("/nearby")
     @Operation(summary = "Find nearby places by coordinates")
     public ResponseEntity<List<PlaceDto>> findNearby(
-            @RequestParam double latitude,
-            @RequestParam double longitude,
-            @RequestParam(defaultValue = "1000") double radiusMeters,
-            @RequestParam(required = false) PlaceType type) {
-        List<Place> places = type != null
-                ? placeService.findNearbyByType(latitude, longitude, radiusMeters, type)
-                : placeService.findNearby(latitude, longitude, radiusMeters);
+            @Valid @RequestBody NearbyRequest request) {
+        List<Place> places = request.type() != null
+                ? placeService.findNearbyByType(request.latitude(), request.longitude(), request.radiusMeters(), request.type())
+                : placeService.findNearby(request.latitude(), request.longitude(), request.radiusMeters());
         return ResponseEntity.ok(places.stream().map(placeMapper::toDto).toList());
     }
 
-    @GetMapping("/recommended")
+    @PostMapping("/recommended")
     @Operation(summary = "Get personalized place recommendations")
     public ResponseEntity<List<PlaceDto>> getRecommended(
             Authentication auth,
-            @RequestParam double latitude,
-            @RequestParam double longitude,
-            @RequestParam(defaultValue = "5000") double radiusMeters,
-            @RequestParam(defaultValue = "20") int limit) {
+            @Valid @RequestBody RecommendedRequest request) {
         Long userId = (Long) auth.getPrincipal();
-        List<Place> places = placeService.getRecommendedPlaces(userId, latitude, longitude, radiusMeters, limit);
+        List<Place> places = placeService.getRecommendedPlaces(userId, request.latitude(), request.longitude(), request.radiusMeters(), request.limit());
         return ResponseEntity.ok(places.stream().map(placeMapper::toDto).toList());
     }
 
