@@ -4,362 +4,177 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UVI — Тест маршрутизации по Екатеринбургу</title>
-
-    <!-- Leaflet.js -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+    <!-- MQTT.js через WebSocket -->
+    <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #ccc; height: 100vh; display: flex; flex-direction: column; }
 
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #1a1a1a;
-            color: #ccc;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        header {
-            background: #111;
-            color: #ddd;
-            padding: 14px 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            border-bottom: 1px solid #2a2a2a;
-        }
-
+        header { background: #111; color: #ddd; padding: 14px 24px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border-bottom: 1px solid #2a2a2a; }
         header h1 { font-size: 1.2rem; font-weight: 600; color: #eee; }
         header span { font-size: 0.85rem; opacity: 0.5; }
+        .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .auth-status { font-size: 0.78rem; color: #555; }
+        .auth-status.ok { color: #6a6; }
+        .btn-auth { padding: 7px 14px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #ccc; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; }
+        .btn-auth:hover { background: #333; }
 
-        .main {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
+        .main { display: flex; flex: 1; overflow: hidden; }
 
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            width: 340px;
-            background: #1c1c1c;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 2px 0 12px rgba(0,0,0,0.5);
-            overflow-y: auto;
-            z-index: 10;
-            border-right: 1px solid #2a2a2a;
-        }
-
-        .section {
-            padding: 16px;
-            border-bottom: 1px solid #2a2a2a;
-        }
-
-        .section h3 {
-            font-size: 0.72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: #555;
-            margin-bottom: 10px;
-        }
-
-        label {
-            display: block;
-            font-size: 0.78rem;
-            color: #666;
-            margin-bottom: 4px;
-            margin-top: 10px;
-        }
-
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #333;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            background: #141414;
-            color: #ccc;
-            transition: border 0.2s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #555;
-            background: #1a1a1a;
-        }
-
-        .coord-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .coord-row input { flex: 1; }
-
-        .point-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #aaa;
-        }
-
-        .dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
+        /* SIDEBAR */
+        .sidebar { width: 340px; background: #1c1c1c; display: flex; flex-direction: column; box-shadow: 2px 0 12px rgba(0,0,0,0.5); overflow-y: auto; z-index: 10; border-right: 1px solid #2a2a2a; }
+        .section { padding: 16px; border-bottom: 1px solid #2a2a2a; }
+        .section h3 { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #555; margin-bottom: 10px; }
+        label { display: block; font-size: 0.78rem; color: #666; margin-bottom: 4px; margin-top: 10px; }
+        input[type="text"], input[type="number"], input[type="tel"] { width: 100%; padding: 8px 10px; border: 1px solid #333; border-radius: 6px; font-size: 0.85rem; background: #141414; color: #ccc; transition: border 0.2s; }
+        input:focus { outline: none; border-color: #555; background: #1a1a1a; }
+        .coord-row { display: flex; gap: 8px; }
+        .coord-row > div { flex: 1; }
+        .point-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: #aaa; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
         .dot.start { background: #888; border: 2px solid #aaa; }
         .dot.end   { background: #444; border: 2px solid #777; }
+        .hint { font-size: 0.72rem; color: #444; margin-top: 6px; }
 
-        .hint {
-            font-size: 0.72rem;
-            color: #444;
-            margin-top: 6px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+        /* Map mode toggle */
+        .mode-toggle { display: flex; gap: 6px; margin-bottom: 4px; }
+        .mode-btn { flex: 1; padding: 7px; border: 1px solid #333; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; background: #141414; color: #666; transition: all 0.2s; text-align: center; }
+        .mode-btn.active-start { border-color: #888; background: #222; color: #ccc; }
+        .mode-btn.active-end   { border-color: #666; background: #1e1e1e; color: #aaa; }
 
-        /* Mode toggle */
-        .mode-toggle {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 4px;
-        }
-
-        .mode-btn {
-            flex: 1;
-            padding: 7px;
-            border: 1px solid #333;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            cursor: pointer;
-            background: #141414;
-            color: #666;
-            transition: all 0.2s;
-            text-align: center;
-        }
-
-        .mode-btn.active-start {
-            border-color: #888;
-            background: #222;
-            color: #ccc;
-        }
-
-        .mode-btn.active-end {
-            border-color: #666;
-            background: #1e1e1e;
-            color: #aaa;
-        }
-
-        /* Button */
-        .btn-calculate {
-            width: 100%;
-            padding: 12px;
-            background: #2a2a2a;
-            color: #ddd;
-            border: 1px solid #444;
-            border-radius: 8px;
-            font-size: 0.92rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            margin-top: 4px;
-            letter-spacing: 0.03em;
-        }
-
+        /* Buttons */
+        .btn-calculate { width: 100%; padding: 12px; background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 8px; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; margin-top: 4px; }
         .btn-calculate:hover { background: #333; }
         .btn-calculate:active { transform: scale(0.98); }
         .btn-calculate:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        .btn-clear {
-            width: 100%;
-            padding: 8px;
-            background: transparent;
-            color: #555;
-            border: 1px solid #2a2a2a;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            margin-top: 6px;
-            transition: all 0.2s;
-        }
-
+        .btn-clear { width: 100%; padding: 8px; background: transparent; color: #555; border: 1px solid #2a2a2a; border-radius: 6px; font-size: 0.8rem; cursor: pointer; margin-top: 6px; transition: all 0.2s; }
         .btn-clear:hover { background: #222; color: #888; }
 
+        /* Route mode */
+        .route-mode-group { display: flex; gap: 6px; }
+        .route-mode-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 6px 8px; border: 1px solid #2a2a2a; border-radius: 8px; background: #141414; cursor: pointer; transition: all 0.2s; }
+        .route-mode-btn:hover { background: #1e1e1e; border-color: #444; }
+        .route-mode-btn.active { background: #222; border-color: #666; box-shadow: 0 0 0 1px #555 inset; }
+        .mode-icon { font-size: 1.2rem; }
+        .mode-label { font-size: 0.7rem; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+        .route-mode-btn.active .mode-label { color: #bbb; }
+        .mode-line { width: 100%; height: 4px; border-radius: 2px; margin-top: 2px; }
+        .driving-line { background: #555; }
+        .pedestrian-line { background: repeating-linear-gradient(to right, #888 0px, #888 4px, transparent 4px, transparent 8px); }
+        .transit-line { background: repeating-linear-gradient(to right, #aaa 0px, #aaa 10px, transparent 10px, transparent 14px); }
+
         /* Result */
-        .result {
-            padding: 14px 16px;
-        }
-
-        .result-card {
-            background: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 14px;
-            display: none;
-        }
-
-        .result-card.error {
-            border-color: #4a2a2a;
-            background: #1e1515;
-        }
-
-        .result-card h4 {
-            font-size: 0.83rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #aaa;
-        }
-
+        .result { padding: 14px 16px; }
+        .result-card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 14px; display: none; }
+        .result-card.error { border-color: #4a2a2a; background: #1e1515; }
+        .result-card h4 { font-size: 0.83rem; font-weight: 700; margin-bottom: 10px; color: #aaa; }
         .result-card.error h4 { color: #a05050; }
-
-        .stat {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-            padding: 4px 0;
-            border-bottom: 1px solid #252525;
-            color: #666;
-        }
-
+        .stat { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid #252525; color: #666; }
         .stat:last-child { border-bottom: none; }
         .stat .val { font-weight: 700; color: #bbb; }
+        .spinner { display: none; text-align: center; padding: 16px; color: #555; font-size: 0.83rem; }
 
-        .spinner {
-            display: none;
-            text-align: center;
-            padding: 16px;
-            color: #555;
-            font-size: 0.83rem;
-        }
+        /* MQTT status */
+        .mqtt-status { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #555; }
+        .mqtt-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; transition: background 0.3s; }
+        .mqtt-dot.connected { background: #6a6; }
+        .mqtt-dot.error { background: #a55; }
+        .mqtt-coords { font-size: 0.72rem; color: #444; margin-top: 4px; font-family: monospace; }
 
-        /* ===== MAP ===== */
-        #map {
-            flex: 1;
-            z-index: 1;
-            filter: grayscale(1) brightness(0.85) contrast(1.05);
-        }
+        /* MAP */
+        #map { flex: 1; z-index: 1; filter: grayscale(1) brightness(0.85) contrast(1.05); }
 
-        /* Анимированный пунктир */
-        @keyframes dash-flow {
-            to { stroke-dashoffset: -40; }
-        }
+        @keyframes dash-flow { to { stroke-dashoffset: -40; } }
 
-        .animated-dash {
-            animation: dash-flow 1s linear infinite;
-        }
-
-        /* Popup styles */
-        .leaflet-popup-content-wrapper {
-            background: #1c1c1c;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #ccc;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-        }
+        /* Popups */
+        .leaflet-popup-content-wrapper { background: #1c1c1c; border: 1px solid #333; border-radius: 6px; color: #ccc; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
         .leaflet-popup-tip { background: #1c1c1c; }
         .leaflet-popup-content { font-size: 0.82rem; color: #bbb; }
 
-        /* Route mode selector */
-        .route-mode-group {
-            display: flex;
-            gap: 6px;
-        }
-
-        .route-mode-btn {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-            padding: 10px 6px 8px;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            background: #141414;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .route-mode-btn:hover { background: #1e1e1e; border-color: #444; }
-
-        .route-mode-btn.active {
-            background: #222;
-            border-color: #666;
-            box-shadow: 0 0 0 1px #555 inset;
-        }
-
-        .mode-icon { font-size: 1.2rem; }
-
-        .mode-label {
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .route-mode-btn.active .mode-label { color: #bbb; }
-
-        /* Превью линий режимов */
-        .mode-line {
-            width: 100%;
-            height: 4px;
-            border-radius: 2px;
-            margin-top: 2px;
-        }
-
-        /* Авто — сплошная тёмная */
-        .driving-line {
-            background: #555;
-        }
-
-        /* Пешком — пунктир короткий */
-        .pedestrian-line {
-            background: repeating-linear-gradient(
-                to right,
-                #888 0px, #888 4px,
-                transparent 4px, transparent 8px
-            );
-        }
-
-        /* Транспорт — длинный тире */
-        .transit-line {
-            background: repeating-linear-gradient(
-                to right,
-                #aaa 0px, #aaa 10px,
-                transparent 10px, transparent 14px
-            );
-        }
-
-        /* JWT section */
-        .jwt-toggle {
-            font-size: 0.73rem;
-            color: #555;
-            cursor: pointer;
-            text-decoration: underline;
-            margin-bottom: 6px;
-        }
-        .jwt-toggle:hover { color: #888; }
-
-        #jwt-field { display: none; }
+        /* ===== AUTH MODAL ===== */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        .modal-overlay.open { opacity: 1; pointer-events: all; }
+        .modal { background: #1c1c1c; border: 1px solid #333; border-radius: 12px; padding: 28px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
+        .modal h2 { font-size: 1.1rem; color: #eee; margin-bottom: 6px; }
+        .modal p { font-size: 0.8rem; color: #555; margin-bottom: 20px; }
+        .modal label { margin-top: 0; color: #666; }
+        .modal input { margin-bottom: 12px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+        .btn-primary { flex: 1; padding: 10px; background: #333; border: 1px solid #555; border-radius: 8px; color: #eee; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-primary:hover { background: #3a3a3a; }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-secondary { padding: 10px 16px; background: transparent; border: 1px solid #333; border-radius: 8px; color: #666; font-size: 0.88rem; cursor: pointer; }
+        .btn-secondary:hover { color: #aaa; border-color: #555; }
+        .modal-step { display: none; }
+        .modal-step.active { display: block; }
+        .dev-hint { background: #1a1a0a; border: 1px solid #443; border-radius: 6px; padding: 10px; font-size: 0.75rem; color: #887; margin-bottom: 12px; line-height: 1.5; }
+        .dev-hint strong { color: #aa9; }
+        .modal-error { font-size: 0.78rem; color: #a05050; margin-top: 8px; display: none; }
     </style>
 </head>
 <body>
 
+<!-- ===== AUTH MODAL ===== -->
+<div class="modal-overlay" id="authModal">
+    <div class="modal">
+        <h2>🔐 Авторизация</h2>
+        <p>SMS-аутентификация через UVI API</p>
+
+        <!-- Шаг 1: ввод телефона -->
+        <div class="modal-step active" id="step-phone">
+            <div class="dev-hint">
+                <strong>⚙️ DEV MODE:</strong> SMS не отправляется. Код появится в логах Spring:<br>
+                <code>[DEV MODE] SMS to 79...: Your verification code is XXXXXX</code>
+            </div>
+            <label>Номер телефона</label>
+            <input type="tel" id="authPhone" placeholder="79XXXXXXXXX" maxlength="11">
+            <div class="modal-error" id="phoneError"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+                <button class="btn-primary" id="btnSendCode" onclick="sendCode()">Отправить код →</button>
+            </div>
+        </div>
+
+        <!-- Шаг 2: ввод кода -->
+        <div class="modal-step" id="step-code">
+            <div class="dev-hint">
+                <strong>⚙️ DEV MODE:</strong> Посмотрите код в логах сервера или в консоли браузера (если включён проброс).
+            </div>
+            <label>Код верификации (6 цифр)</label>
+            <input type="text" id="authCode" placeholder="123456" maxlength="6" pattern="\d{6}">
+            <div class="modal-error" id="codeError"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="backToPhone()">← Назад</button>
+                <button class="btn-primary" id="btnVerify" onclick="verifyCode()">Войти ✓</button>
+            </div>
+        </div>
+
+        <!-- Шаг 3: успех -->
+        <div class="modal-step" id="step-success">
+            <div style="text-align:center; padding: 16px 0;">
+                <div style="font-size:2.5rem; margin-bottom:12px;">✅</div>
+                <div style="font-size:0.95rem; color:#8a8; font-weight:600; margin-bottom:6px;">Авторизация успешна!</div>
+                <div style="font-size:0.78rem; color:#555;" id="successPhone"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="closeModal()">Начать работу →</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== HEADER ===== -->
 <header>
     <div>🗺️</div>
     <div>
         <h1>UVI — Маршрутизация по Екатеринбургу</h1>
         <span>pgRouting + OpenStreetMap • Dijkstra</span>
+    </div>
+    <div class="header-right">
+        <span class="auth-status" id="authStatusText">Не авторизован</span>
+        <button class="btn-auth" onclick="openModal()">🔐 Войти</button>
     </div>
 </header>
 
@@ -368,61 +183,35 @@
     <!-- ===== SIDEBAR ===== -->
     <div class="sidebar">
 
-        <!-- JWT -->
-        <div class="section">
-            <h3>🔐 Авторизация</h3>
-            <div class="jwt-toggle" onclick="toggleJwt()">▶ JWT токен (показать)</div>
-            <div id="jwt-field">
-                <label>Bearer Token</label>
-                <input type="text" id="jwt" placeholder="eyJhbGciOiJIUzI1NiIs...">
-            </div>
-        </div>
-
-        <!-- Click mode -->
+        <!-- Выбор точек на карте -->
         <div class="section">
             <h3>📍 Выбор точек на карте</h3>
             <div class="mode-toggle">
-                <div class="mode-btn active-start" id="btn-mode-start" onclick="setMode('start')">
-                    ○ Начало
-                </div>
-                <div class="mode-btn" id="btn-mode-end" onclick="setMode('end')">
-                    ● Конец
-                </div>
+                <div class="mode-btn active-start" id="btn-mode-start" onclick="setClickMode('start')">○ Начало</div>
+                <div class="mode-btn" id="btn-mode-end" onclick="setClickMode('end')">● Конец</div>
             </div>
             <div class="hint">↑ Кликни по карте чтобы установить точку</div>
         </div>
 
-        <!-- Start point -->
+        <!-- Начальная точка -->
         <div class="section">
             <div class="point-badge"><span class="dot start"></span> Начальная точка</div>
             <div class="coord-row">
-                <div>
-                    <label>Широта (lat)</label>
-                    <input type="number" id="startLat" step="0.0001" placeholder="56.8389" value="56.8376">
-                </div>
-                <div>
-                    <label>Долгота (lon)</label>
-                    <input type="number" id="startLon" step="0.0001" placeholder="60.6057" value="60.6425">
-                </div>
+                <div><label>Широта (lat)</label><input type="number" id="startLat" step="0.0001" placeholder="56.8389" value="56.8376"></div>
+                <div><label>Долгота (lon)</label><input type="number" id="startLon" step="0.0001" placeholder="60.6057" value="60.6425"></div>
             </div>
         </div>
 
-        <!-- End point -->
+        <!-- Конечная точка -->
         <div class="section">
             <div class="point-badge"><span class="dot end"></span> Конечная точка</div>
             <div class="coord-row">
-                <div>
-                    <label>Широта (lat)</label>
-                    <input type="number" id="endLat" step="0.0001" placeholder="56.8580" value="56.8368">
-                </div>
-                <div>
-                    <label>Долгота (lon)</label>
-                    <input type="number" id="endLon" step="0.0001" placeholder="60.6050" value="60.6146">
-                </div>
+                <div><label>Широта (lat)</label><input type="number" id="endLat" step="0.0001" placeholder="56.8580" value="56.8368"></div>
+                <div><label>Долгота (lon)</label><input type="number" id="endLon" step="0.0001" placeholder="60.6050" value="60.6146"></div>
             </div>
         </div>
 
-        <!-- Route mode -->
+        <!-- Режим маршрута -->
         <div class="section">
             <h3>🚦 Режим маршрута</h3>
             <div class="route-mode-group">
@@ -444,26 +233,37 @@
             </div>
         </div>
 
-        <!-- Actions -->
+        <!-- Действия -->
         <div class="section">
-            <button class="btn-calculate" id="calcBtn" onclick="calculateRoute()">
-                → Построить маршрут
-            </button>
+            <button class="btn-calculate" id="calcBtn" onclick="calculateRoute()">→ Построить маршрут</button>
             <button class="btn-clear" onclick="clearAll()">✕ Очистить</button>
         </div>
 
-        <!-- Spinner -->
+        <!-- Спиннер -->
         <div class="spinner" id="spinner">⏳ Вычисляем маршрут...</div>
 
-        <!-- Result -->
+        <!-- Результат -->
         <div class="result">
             <div class="result-card" id="resultCard">
                 <h4 id="resultTitle">✓ Маршрут построен</h4>
                 <div class="stat"><span>Дистанция</span><span class="val" id="resDist">—</span></div>
-                <div class="stat"><span>Точек в маршруте</span><span class="val" id="resPoints">—</span></div>
+                <div class="stat"><span>Точек</span><span class="val" id="resPoints">—</span></div>
                 <div class="stat"><span>Начало</span><span class="val" id="resStart">—</span></div>
                 <div class="stat"><span>Конец</span><span class="val" id="resEnd">—</span></div>
             </div>
+        </div>
+
+        <!-- MQTT геолокация -->
+        <div class="section">
+            <h3>📡 MQTT геолокация</h3>
+            <div class="mqtt-status">
+                <div class="mqtt-dot" id="mqttDot"></div>
+                <span id="mqttStatusText">Не подключён</span>
+            </div>
+            <div class="mqtt-coords" id="mqttCoords"></div>
+            <button class="btn-clear" style="margin-top:10px;" onclick="toggleMqtt()">
+                <span id="mqttBtnText">▶ Начать трекинг</span>
+            </button>
         </div>
 
     </div>
@@ -473,305 +273,336 @@
 </div>
 
 <script>
-    // ===== MAP INIT =====
-    // Серо-чёрная карта через CartoDB Positron (светло-серая, чистая)
-    const map = L.map('map', { zoomControl: true }).setView([56.8389, 60.6057], 13);
+// ===== MAP =====
+const map = L.map('map', { zoomControl: true }).setView([56.8389, 60.6057], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 19
-    }).addTo(map);
+// ===== STATE =====
+let jwtToken       = localStorage.getItem('uvi_jwt') || '';
+let currentUserId  = null;
+let clickMode      = 'start';
+let routeMode      = 'DRIVING';
+let startMarker    = null;
+let endMarker      = null;
+let myLocMarker    = null;   // маркер моей геопозиции
+let routeLayer     = null;
+let animLayer      = null;
+let mqttClient     = null;
+let mqttTracking   = false;
+let geoWatchId     = null;
 
-    // ===== STATE =====
-    let mode = 'start';           // режим клика по карте (start/end)
-    let routeMode = 'DRIVING';    // режим маршрута
-    let startMarker = null;
-    let endMarker = null;
-    let routeLayer = null;        // статичный контур (тонкий серый фон)
-    let animLayer = null;         // SVG-пунктир с анимацией
-    let animTimer = null;         // requestAnimationFrame handle
+// ===== ICONS =====
+const startIcon = L.divIcon({ className: '', html: `<div style="width:18px;height:18px;background:#fff;border:3px solid #222;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.6)"></div>`, iconAnchor: [9,9] });
+const endIcon   = L.divIcon({ className: '', html: `<div style="width:18px;height:18px;background:#222;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.8)"></div>`, iconAnchor: [9,9] });
+const myIcon    = L.divIcon({ className: '', html: `<div style="width:20px;height:20px;background:#4a9;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(68,170,100,0.25)"></div>`, iconAnchor: [10,10] });
 
-    // Стили линий для каждого режима маршрута
-    const routeStyles = {
-        DRIVING: {
-            bgColor:    '#999',
-            bgWeight:   2,
-            bgOpacity:  0.35,
-            dashColor:  '#111',
-            dashWeight: 5,
-            dashArray:  '14 10',
-            dashSpeed:  '0.8s',
-            label:      '🚗 Авто'
-        },
-        PEDESTRIAN: {
-            bgColor:    '#aaa',
-            bgWeight:   1.5,
-            bgOpacity:  0.25,
-            dashColor:  '#333',
-            dashWeight: 3,
-            dashArray:  '4 8',
-            dashSpeed:  '1.2s',
-            label:      '🚶 Пешком'
-        },
-        PUBLIC_TRANSPORT: {
-            bgColor:    '#bbb',
-            bgWeight:   2.5,
-            bgOpacity:  0.3,
-            dashColor:  '#111',
-            dashWeight: 6,
-            dashArray:  '18 8',
-            dashSpeed:  '0.6s',
-            label:      '🚌 Транспорт'
-        }
-    };
+// ===== ROUTE STYLES =====
+const routeStyles = {
+    DRIVING:          { bgColor:'#999', bgWeight:2, bgOpacity:0.35, dashColor:'#111', dashWeight:5, dashArray:'14 10', dashSpeed:'0.8s', label:'🚗 Авто' },
+    PEDESTRIAN:       { bgColor:'#aaa', bgWeight:1.5, bgOpacity:0.25, dashColor:'#333', dashWeight:3, dashArray:'4 8', dashSpeed:'1.2s', label:'🚶 Пешком' },
+    PUBLIC_TRANSPORT: { bgColor:'#bbb', bgWeight:2.5, bgOpacity:0.3, dashColor:'#111', dashWeight:6, dashArray:'18 8', dashSpeed:'0.6s', label:'🚌 Транспорт' }
+};
 
-    // ===== ROUTE MODE SELECTOR =====
-    function selectRouteMode(m) {
-        routeMode = m;
-        document.querySelectorAll('.route-mode-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById('mode-' + m).classList.add('active');
+// ===== AUTH: restore from localStorage =====
+if (jwtToken) {
+    try {
+        const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+        currentUserId = payload.sub;
+        setAuthStatus(true, payload.phone || '');
+    } catch(e) { jwtToken = ''; localStorage.removeItem('uvi_jwt'); }
+}
+
+function setAuthStatus(ok, phone) {
+    const txt = document.getElementById('authStatusText');
+    const btn = document.querySelector('.btn-auth');
+    if (ok) {
+        txt.textContent = '✓ ' + (phone || 'авторизован');
+        txt.className = 'auth-status ok';
+        btn.textContent = '🔓 Выйти';
+        btn.onclick = logout;
+    } else {
+        txt.textContent = 'Не авторизован';
+        txt.className = 'auth-status';
+        btn.textContent = '🔐 Войти';
+        btn.onclick = openModal;
     }
+}
 
-    // Маркеры в чёрно-белом стиле
-    const startIcon = L.divIcon({
-        className: '',
-        html: `<div style="
-            width:18px;height:18px;
-            background:#fff;
-            border:3px solid #222;
-            border-radius:50%;
-            box-shadow:0 2px 8px rgba(0,0,0,0.6)
-        "></div>`,
-        iconAnchor: [9, 9]
-    });
+function logout() {
+    jwtToken = ''; currentUserId = null;
+    localStorage.removeItem('uvi_jwt');
+    setAuthStatus(false, '');
+    stopMqtt();
+}
 
-    const endIcon = L.divIcon({
-        className: '',
-        html: `<div style="
-            width:18px;height:18px;
-            background:#222;
-            border:3px solid #fff;
-            border-radius:50%;
-            box-shadow:0 2px 8px rgba(0,0,0,0.8)
-        "></div>`,
-        iconAnchor: [9, 9]
-    });
+// ===== AUTH MODAL =====
+function openModal() { document.getElementById('authModal').classList.add('open'); showStep('phone'); }
+function closeModal() { document.getElementById('authModal').classList.remove('open'); }
 
-    // ===== CLICK ON MAP =====
-    map.on('click', function(e) {
-        const lat = e.latlng.lat.toFixed(6);
-        const lon = e.latlng.lng.toFixed(6);
+function showStep(name) {
+    document.querySelectorAll('.modal-step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step-' + name).classList.add('active');
+    document.querySelectorAll('.modal-error').forEach(e => { e.style.display='none'; e.textContent=''; });
+}
 
-        if (mode === 'start') {
-            document.getElementById('startLat').value = lat;
-            document.getElementById('startLon').value = lon;
-            if (startMarker) map.removeLayer(startMarker);
-            startMarker = L.marker([lat, lon], { icon: startIcon })
-                .addTo(map)
-                .bindPopup(`<b>Начало</b><br>${lat}, ${lon}`)
-                .openPopup();
-            setMode('end');
-        } else {
-            document.getElementById('endLat').value = lat;
-            document.getElementById('endLon').value = lon;
-            if (endMarker) map.removeLayer(endMarker);
-            endMarker = L.marker([lat, lon], { icon: endIcon })
-                .addTo(map)
-                .bindPopup(`<b>Конец</b><br>${lat}, ${lon}`)
-                .openPopup();
-            setMode('start');
-        }
-    });
+function showModalError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.style.display = 'block';
+}
 
-    // ===== MODE =====
-    function setMode(m) {
-        mode = m;
-        document.getElementById('btn-mode-start').className =
-            'mode-btn' + (m === 'start' ? ' active-start' : '');
-        document.getElementById('btn-mode-end').className =
-            'mode-btn' + (m === 'end' ? ' active-end' : '');
-    }
-
-    // ===== JWT TOGGLE =====
-    function toggleJwt() {
-        const f = document.getElementById('jwt-field');
-        const t = document.querySelector('.jwt-toggle');
-        if (f.style.display === 'none' || f.style.display === '') {
-            f.style.display = 'block';
-            t.textContent = '▼ JWT токен (скрыть)';
-        } else {
-            f.style.display = 'none';
-            t.textContent = '▶ JWT токен (показать)';
-        }
-    }
-
-    // ===== CALCULATE ROUTE =====
-    async function calculateRoute() {
-        const startLat = parseFloat(document.getElementById('startLat').value);
-        const startLon = parseFloat(document.getElementById('startLon').value);
-        const endLat   = parseFloat(document.getElementById('endLat').value);
-        const endLon   = parseFloat(document.getElementById('endLon').value);
-        const jwt      = document.getElementById('jwt').value.trim();
-
-        if (isNaN(startLat) || isNaN(startLon) || isNaN(endLat) || isNaN(endLon)) {
-            showError('Заполните координаты начальной и конечной точки');
-            return;
-        }
-
-        if (!jwt) {
-            showError('Введите JWT токен для авторизации');
-            return;
-        }
-
-        document.getElementById('calcBtn').disabled = true;
-        document.getElementById('spinner').style.display = 'block';
-        document.getElementById('resultCard').style.display = 'none';
-
-        try {
-            const response = await fetch('/api/v1/routes/calculate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + jwt
-                },
-                body: JSON.stringify({ startLat, startLon, endLat, endLon, mode: routeMode })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                showError(data.message || `Ошибка ${response.status}`);
-                return;
-            }
-
-            showRoute(data);
-
-        } catch (err) {
-            showError('Ошибка соединения: ' + err.message);
-        } finally {
-            document.getElementById('calcBtn').disabled = false;
-            document.getElementById('spinner').style.display = 'none';
-        }
-    }
-
-    // ===== ANIMATED DOTTED ROUTE =====
-    function clearRouteLayer() {
-        if (animTimer) { cancelAnimationFrame(animTimer); animTimer = null; }
-        if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-        if (animLayer)  { map.removeLayer(animLayer);  animLayer  = null; }
-    }
-
-    function showRoute(data) {
-        clearRouteLayer();
-
-        const latlngs = data.points.map(p => [p.latitude, p.longitude]);
-        const style   = routeStyles[data.mode] || routeStyles['DRIVING'];
-
-        // 1) Фоновая линия — тонкий серый контур
-        routeLayer = L.polyline(latlngs, {
-            color:   style.bgColor,
-            weight:  style.bgWeight,
-            opacity: style.bgOpacity,
-            lineJoin: 'round',
-            lineCap:  'round'
-        }).addTo(map);
-
-        // 2) Анимированный пунктир поверх
-        animLayer = L.polyline(latlngs, {
-            color:     style.dashColor,
-            weight:    style.dashWeight,
-            opacity:   1,
-            lineJoin:  'round',
-            lineCap:   'butt',
-            dashArray: style.dashArray,
-            dashOffset: '0'
-        }).addTo(map);
-
-        // Применяем CSS-анимацию к SVG path (Leaflet рендерит через SVG по умолчанию)
-        requestAnimationFrame(() => {
-            const svgPaths = document.querySelectorAll('.leaflet-overlay-pane svg path');
-            if (svgPaths.length > 0) {
-                const dashPath = svgPaths[svgPaths.length - 1];
-                dashPath.style.strokeDasharray = style.dashArray;
-                dashPath.style.strokeDashoffset = '0';
-                dashPath.style.animation = `dash-flow ${style.dashSpeed} linear infinite`;
-            }
+async function sendCode() {
+    const phone = document.getElementById('authPhone').value.trim();
+    if (!/^[78]\d{10}$/.test(phone)) { showModalError('phoneError', 'Формат: 79XXXXXXXXX (11 цифр)'); return; }
+    const btn = document.getElementById('btnSendCode');
+    btn.disabled = true; btn.textContent = '⏳ Отправка...';
+    try {
+        const r = await fetch('/api/v1/auth/send-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber: phone })
         });
+        if (!r.ok) { const d = await r.json(); throw new Error(d.message || 'Ошибка ' + r.status); }
+        showStep('code');
+        document.getElementById('authCode').focus();
+    } catch(e) { showModalError('phoneError', e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Отправить код →'; }
+}
 
-        // Подгоняем карту
-        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+async function verifyCode() {
+    const phone = document.getElementById('authPhone').value.trim();
+    const code  = document.getElementById('authCode').value.trim();
+    if (!/^\d{6}$/.test(code)) { showModalError('codeError', 'Код — 6 цифр'); return; }
+    const btn = document.getElementById('btnVerify');
+    btn.disabled = true; btn.textContent = '⏳ Проверка...';
+    try {
+        const r = await fetch('/api/v1/auth/verify-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber: phone, code })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.message || 'Ошибка ' + r.status);
+        jwtToken = d.accessToken;
+        localStorage.setItem('uvi_jwt', jwtToken);
+        const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+        currentUserId = payload.sub;
+        setAuthStatus(true, phone);
+        document.getElementById('successPhone').textContent = phone;
+        showStep('success');
+    } catch(e) { showModalError('codeError', e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Войти ✓'; }
+}
 
-        // Обновляем маркеры
+function backToPhone() { showStep('phone'); }
+
+// Enter в модалке
+document.getElementById('authPhone').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(); });
+document.getElementById('authCode').addEventListener('keydown',  e => { if (e.key === 'Enter') verifyCode(); });
+document.getElementById('authModal').addEventListener('click', e => { if (e.target === document.getElementById('authModal')) closeModal(); });
+
+// ===== CLICK MODE =====
+function setClickMode(m) {
+    clickMode = m;
+    document.getElementById('btn-mode-start').className = 'mode-btn' + (m==='start' ? ' active-start' : '');
+    document.getElementById('btn-mode-end').className   = 'mode-btn' + (m==='end'   ? ' active-end'   : '');
+}
+
+map.on('click', function(e) {
+    const lat = e.latlng.lat.toFixed(6), lon = e.latlng.lng.toFixed(6);
+    if (clickMode === 'start') {
+        document.getElementById('startLat').value = lat;
+        document.getElementById('startLon').value = lon;
         if (startMarker) map.removeLayer(startMarker);
-        if (endMarker)   map.removeLayer(endMarker);
-
-        startMarker = L.marker([data.startLat, data.startLon], { icon: startIcon })
-            .addTo(map)
-            .bindPopup(`<b>Начало</b><br>${data.startLat.toFixed(5)}, ${data.startLon.toFixed(5)}`);
-
-        endMarker = L.marker([data.endLat, data.endLon], { icon: endIcon })
-            .addTo(map)
-            .bindPopup(`<b>Конец</b><br>${data.endLat.toFixed(5)}, ${data.endLon.toFixed(5)}`);
-
-        // Статистика
-        const card = document.getElementById('resultCard');
-        card.className = 'result-card';
-        card.style.display = 'block';
-        document.getElementById('resultTitle').textContent = `✓ Маршрут построен (${style.label})`;
-        document.getElementById('resDist').textContent =
-            `${formatDistance(data.totalDistanceMeters)} / ${data.totalDistanceKm} км`;
-        document.getElementById('resPoints').textContent = data.totalSegments;
-        document.getElementById('resStart').textContent =
-            `${data.startLat.toFixed(4)}, ${data.startLon.toFixed(4)}`;
-        document.getElementById('resEnd').textContent =
-            `${data.endLat.toFixed(4)}, ${data.endLon.toFixed(4)}`;
+        startMarker = L.marker([lat,lon], {icon:startIcon}).addTo(map).bindPopup(`<b>Начало</b><br>${lat}, ${lon}`).openPopup();
+        setClickMode('end');
+    } else {
+        document.getElementById('endLat').value = lat;
+        document.getElementById('endLon').value = lon;
+        if (endMarker) map.removeLayer(endMarker);
+        endMarker = L.marker([lat,lon], {icon:endIcon}).addTo(map).bindPopup(`<b>Конец</b><br>${lat}, ${lon}`).openPopup();
+        setClickMode('start');
     }
+});
 
-    function showError(msg) {
-        document.getElementById('spinner').style.display = 'none';
-        document.getElementById('calcBtn').disabled = false;
-        const card = document.getElementById('resultCard');
-        card.className = 'result-card error';
-        card.style.display = 'block';
-        document.getElementById('resultTitle').textContent = '✕ ' + msg;
-        document.getElementById('resDist').textContent = '—';
-        document.getElementById('resPoints').textContent = '—';
-        document.getElementById('resStart').textContent = '—';
-        document.getElementById('resEnd').textContent = '—';
-    }
+// ===== ROUTE MODE =====
+function selectRouteMode(m) {
+    routeMode = m;
+    document.querySelectorAll('.route-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('mode-' + m).classList.add('active');
+}
 
-    function formatDistance(meters) {
-        if (meters >= 1000) return (meters / 1000).toFixed(2) + ' км';
-        return Math.round(meters) + ' м';
-    }
+// ===== CALCULATE ROUTE =====
+async function calculateRoute() {
+    const startLat = parseFloat(document.getElementById('startLat').value);
+    const startLon = parseFloat(document.getElementById('startLon').value);
+    const endLat   = parseFloat(document.getElementById('endLat').value);
+    const endLon   = parseFloat(document.getElementById('endLon').value);
+    if (isNaN(startLat)||isNaN(startLon)||isNaN(endLat)||isNaN(endLon)) { showError('Заполните координаты'); return; }
+    if (!jwtToken) { showError('Необходима авторизация'); openModal(); return; }
+    document.getElementById('calcBtn').disabled = true;
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('resultCard').style.display = 'none';
+    try {
+        const r = await fetch('/api/v1/routes/calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwtToken },
+            body: JSON.stringify({ startLat, startLon, endLat, endLon, mode: routeMode })
+        });
+        const data = await r.json();
+        if (!r.ok) { showError(data.message || 'Ошибка ' + r.status); return; }
+        showRoute(data);
+    } catch(e) { showError('Ошибка: ' + e.message); }
+    finally { document.getElementById('calcBtn').disabled = false; document.getElementById('spinner').style.display = 'none'; }
+}
 
-    // ===== CLEAR =====
-    function clearAll() {
-        clearRouteLayer();
-        if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-        if (endMarker)   { map.removeLayer(endMarker);   endMarker   = null; }
-        document.getElementById('startLat').value = '';
-        document.getElementById('startLon').value = '';
-        document.getElementById('endLat').value = '';
-        document.getElementById('endLon').value = '';
-        document.getElementById('resultCard').style.display = 'none';
-        setMode('start');
-    }
+// ===== ROUTE DISPLAY =====
+function clearRouteLayer() {
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+    if (animLayer)  { map.removeLayer(animLayer);  animLayer  = null; }
+}
 
-    // ===== ENTER KEY =====
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Enter') calculateRoute();
+function showRoute(data) {
+    clearRouteLayer();
+    const latlngs = data.points.map(p => [p.latitude, p.longitude]);
+    const style   = routeStyles[data.mode] || routeStyles['DRIVING'];
+    routeLayer = L.polyline(latlngs, { color:style.bgColor, weight:style.bgWeight, opacity:style.bgOpacity, lineJoin:'round', lineCap:'round' }).addTo(map);
+    animLayer  = L.polyline(latlngs, { color:style.dashColor, weight:style.dashWeight, opacity:1, lineJoin:'round', lineCap:'butt', dashArray:style.dashArray, dashOffset:'0' }).addTo(map);
+    requestAnimationFrame(() => {
+        const paths = document.querySelectorAll('.leaflet-overlay-pane svg path');
+        if (paths.length > 0) {
+            const p = paths[paths.length - 1];
+            p.style.strokeDasharray = style.dashArray;
+            p.style.strokeDashoffset = '0';
+            p.style.animation = `dash-flow ${style.dashSpeed} linear infinite`;
+        }
+    });
+    map.fitBounds(routeLayer.getBounds(), { padding: [50,50] });
+    if (startMarker) map.removeLayer(startMarker);
+    if (endMarker)   map.removeLayer(endMarker);
+    startMarker = L.marker([data.startLat, data.startLon], {icon:startIcon}).addTo(map).bindPopup(`<b>Начало</b><br>${data.startLat.toFixed(5)}, ${data.startLon.toFixed(5)}`);
+    endMarker   = L.marker([data.endLat,   data.endLon],   {icon:endIcon  }).addTo(map).bindPopup(`<b>Конец</b><br>${data.endLat.toFixed(5)}, ${data.endLon.toFixed(5)}`);
+    const card = document.getElementById('resultCard');
+    card.className = 'result-card'; card.style.display = 'block';
+    document.getElementById('resultTitle').textContent  = `✓ Маршрут построен (${style.label})`;
+    document.getElementById('resDist').textContent      = `${formatDist(data.totalDistanceMeters)} / ${data.totalDistanceKm} км`;
+    document.getElementById('resPoints').textContent    = data.totalSegments;
+    document.getElementById('resStart').textContent     = `${data.startLat.toFixed(4)}, ${data.startLon.toFixed(4)}`;
+    document.getElementById('resEnd').textContent       = `${data.endLat.toFixed(4)},   ${data.endLon.toFixed(4)}`;
+}
+
+function showError(msg) {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('calcBtn').disabled = false;
+    const card = document.getElementById('resultCard');
+    card.className = 'result-card error'; card.style.display = 'block';
+    document.getElementById('resultTitle').textContent = '✕ ' + msg;
+    ['resDist','resPoints','resStart','resEnd'].forEach(id => document.getElementById(id).textContent = '—');
+}
+
+function formatDist(m) { return m >= 1000 ? (m/1000).toFixed(2)+' км' : Math.round(m)+' м'; }
+
+function clearAll() {
+    clearRouteLayer();
+    if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+    if (endMarker)   { map.removeLayer(endMarker);   endMarker   = null; }
+    ['startLat','startLon','endLat','endLon'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('resultCard').style.display = 'none';
+    setClickMode('start');
+}
+
+// ===== MQTT GEOLOCATION =====
+function setMqttStatus(state, text) {
+    const dot = document.getElementById('mqttDot');
+    dot.className = 'mqtt-dot' + (state === 'ok' ? ' connected' : state === 'err' ? ' error' : '');
+    document.getElementById('mqttStatusText').textContent = text;
+}
+
+function toggleMqtt() {
+    if (mqttTracking) stopMqtt(); else startMqtt();
+}
+
+function startMqtt() {
+    if (!jwtToken) { alert('Для MQTT трекинга необходима авторизация'); openModal(); return; }
+    if (!navigator.geolocation) { setMqttStatus('err', 'Геолокация не поддерживается'); return; }
+
+    // Подключаемся к Mosquitto WebSocket на порту 9001
+    const clientId = 'uvi-web-' + Math.random().toString(36).substr(2, 8);
+    mqttClient = mqtt.connect('ws://localhost:9001', { clientId, keepalive: 30 });
+
+    mqttClient.on('connect', () => {
+        setMqttStatus('ok', 'MQTT подключён');
+        mqttTracking = true;
+        document.getElementById('mqttBtnText').textContent = '■ Остановить трекинг';
+
+        // Начинаем слежение за геолокацией
+        geoWatchId = navigator.geolocation.watchPosition(
+            pos => publishLocation(pos),
+            err => setMqttStatus('err', 'Ошибка геолокации: ' + err.message),
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+        );
     });
 
-    // Начальные маркеры
-    startMarker = L.marker([56.8376, 60.6425], { icon: startIcon })
-        .addTo(map)
-        .bindPopup('<b>Начало</b> — Площадь 1905 года');
+    mqttClient.on('error', err => {
+        setMqttStatus('err', 'Ошибка MQTT: ' + err.message);
+        stopMqtt();
+    });
 
-    endMarker = L.marker([56.8368, 60.6146], { icon: endIcon })
-        .addTo(map)
-        .bindPopup('<b>Конец</b> — ЖД вокзал');
+    mqttClient.on('close', () => {
+        if (mqttTracking) setMqttStatus('', 'MQTT отключён');
+    });
+}
+
+function publishLocation(pos) {
+    if (!mqttClient || !mqttClient.connected || !currentUserId) return;
+    const { latitude, longitude, accuracy, speed } = pos.coords;
+    const msg = JSON.stringify({
+        userId:    parseInt(currentUserId),
+        latitude,
+        longitude,
+        accuracy:  accuracy  || null,
+        speed:     speed     || null,
+        batteryLevel: null,
+        timestamp: Date.now()
+    });
+    const topic = 'location/' + currentUserId;
+    mqttClient.publish(topic, msg, { qos: 1 });
+
+    // Обновляем маркер на карте
+    if (!myLocMarker) {
+        myLocMarker = L.marker([latitude, longitude], { icon: myIcon })
+            .addTo(map)
+            .bindPopup('<b>📍 Я</b>');
+    } else {
+        myLocMarker.setLatLng([latitude, longitude]);
+    }
+
+    // Обновляем координаты в сайдбаре
+    document.getElementById('mqttCoords').textContent =
+        `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` +
+        (accuracy ? ` ±${Math.round(accuracy)}м` : '');
+}
+
+function stopMqtt() {
+    mqttTracking = false;
+    if (geoWatchId !== null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+    if (mqttClient) { mqttClient.end(true); mqttClient = null; }
+    setMqttStatus('', 'Не подключён');
+    document.getElementById('mqttBtnText').textContent = '▶ Начать трекинг';
+    document.getElementById('mqttCoords').textContent = '';
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && !document.getElementById('authModal').classList.contains('open')) calculateRoute(); });
+
+// ===== INIT MARKERS =====
+startMarker = L.marker([56.8376, 60.6425], {icon:startIcon}).addTo(map).bindPopup('<b>Начало</b> — Площадь 1905 года');
+endMarker   = L.marker([56.8368, 60.6146], {icon:endIcon  }).addTo(map).bindPopup('<b>Конец</b> — ЖД вокзал');
+
+// Если уже авторизован — показываем статус
+if (!jwtToken) setTimeout(openModal, 500);
 </script>
 
 </body>
