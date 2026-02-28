@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UVI — Тест маршрутизации по Екатеринбургу</title>
+
+    <!-- Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #1a1a1a;
+            color: #ccc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #111;
+            color: #ddd;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        header h1 { font-size: 1.2rem; font-weight: 600; color: #eee; }
+        header span { font-size: 0.85rem; opacity: 0.5; }
+
+        .main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 340px;
+            background: #1c1c1c;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.5);
+            overflow-y: auto;
+            z-index: 10;
+            border-right: 1px solid #2a2a2a;
+        }
+
+        .section {
+            padding: 16px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .section h3 {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.78rem;
+            color: #666;
+            margin-bottom: 4px;
+            margin-top: 10px;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            background: #141414;
+            color: #ccc;
+            transition: border 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #555;
+            background: #1a1a1a;
+        }
+
+        .coord-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .coord-row input { flex: 1; }
+
+        .point-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot.start { background: #888; border: 2px solid #aaa; }
+        .dot.end   { background: #444; border: 2px solid #777; }
+
+        .hint {
+            font-size: 0.72rem;
+            color: #444;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Mode toggle */
+        .mode-toggle {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 7px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #141414;
+            color: #666;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .mode-btn.active-start {
+            border-color: #888;
+            background: #222;
+            color: #ccc;
+        }
+
+        .mode-btn.active-end {
+            border-color: #666;
+            background: #1e1e1e;
+            color: #aaa;
+        }
+
+        /* Button */
+        .btn-calculate {
+            width: 100%;
+            padding: 12px;
+            background: #2a2a2a;
+            color: #ddd;
+            border: 1px solid #444;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 4px;
+            letter-spacing: 0.03em;
+        }
+
+        .btn-calculate:hover { background: #333; }
+        .btn-calculate:active { transform: scale(0.98); }
+        .btn-calculate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-clear {
+            width: 100%;
+            padding: 8px;
+            background: transparent;
+            color: #555;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-top: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-clear:hover { background: #222; color: #888; }
+
+        /* Result */
+        .result {
+            padding: 14px 16px;
+        }
+
+        .result-card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 14px;
+            display: none;
+        }
+
+        .result-card.error {
+            border-color: #4a2a2a;
+            background: #1e1515;
+        }
+
+        .result-card h4 {
+            font-size: 0.83rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #aaa;
+        }
+
+        .result-card.error h4 { color: #a05050; }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            padding: 4px 0;
+            border-bottom: 1px solid #252525;
+            color: #666;
+        }
+
+        .stat:last-child { border-bottom: none; }
+        .stat .val { font-weight: 700; color: #bbb; }
+
+        .spinner {
+            display: none;
+            text-align: center;
+            padding: 16px;
+            color: #555;
+            font-size: 0.83rem;
+        }
+
+        /* ===== MAP ===== */
+        #map {
+            flex: 1;
+            z-index: 1;
+            filter: grayscale(1) brightness(0.85) contrast(1.05);
+        }
+
+        /* Анимированный пунктир */
+        @keyframes dash-flow {
+            to { stroke-dashoffset: -40; }
+        }
+
+        .animated-dash {
+            animation: dash-flow 1s linear infinite;
+        }
+
+        /* Popup styles */
+        .leaflet-popup-content-wrapper {
+            background: #1c1c1c;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #ccc;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+        .leaflet-popup-tip { background: #1c1c1c; }
+        .leaflet-popup-content { font-size: 0.82rem; color: #bbb; }
+
+        /* Route mode selector */
+        .route-mode-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .route-mode-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 6px 8px;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            background: #141414;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .route-mode-btn:hover { background: #1e1e1e; border-color: #444; }
+
+        .route-mode-btn.active {
+            background: #222;
+            border-color: #666;
+            box-shadow: 0 0 0 1px #555 inset;
+        }
+
+        .mode-icon { font-size: 1.2rem; }
+
+        .mode-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .route-mode-btn.active .mode-label { color: #bbb; }
+
+        /* Превью линий режимов */
+        .mode-line {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 2px;
+        }
+
+        /* Авто — сплошная тёмная */
+        .driving-line {
+            background: #555;
+        }
+
+        /* Пешком — пунктир короткий */
+        .pedestrian-line {
+            background: repeating-linear-gradient(
+                to right,
+                #888 0px, #888 4px,
+                transparent 4px, transparent 8px
+            );
+        }
+
+        /* Транспорт — длинный тире */
+        .transit-line {
+            background: repeating-linear-gradient(
+                to right,
+                #aaa 0px, #aaa 10px,
+                transparent 10px, transparent 14px
+            );
+        }
+
+        /* JWT section */
+        .jwt-toggle {
+            font-size: 0.73rem;
+            color: #555;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-bottom: 6px;
+        }
+        .jwt-toggle:hover { color: #888; }
+
+        #jwt-field { display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>🗺️</div>
+    <div>
+        <h1>UVI — Маршрутизация по Екатеринбургу</h1>
+        <span>pgRouting + OpenStreetMap • Dijkstra</span>
+    </div>
+</header>
+
+<div class="main">
+
+    <!-- ===== SIDEBAR ===== -->
+    <div class="sidebar">
+
+        <!-- JWT -->
+        <div class="section">
+            <h3>🔐 Авторизация</h3>
+            <div class="jwt-toggle" onclick="toggleJwt()">▶ JWT токен (показать)</div>
+            <div id="jwt-field">
+                <label>Bearer Token</label>
+                <input type="text" id="jwt" placeholder="eyJhbGciOiJIUzI1NiIs...">
+            </div>
+        </div>
+
+        <!-- Click mode -->
+        <div class="section">
+            <h3>📍 Выбор точек на карте</h3>
+            <div class="mode-toggle">
+                <div class="mode-btn active-start" id="btn-mode-start" onclick="setMode('start')">
+                    ○ Начало
+                </div>
+                <div class="mode-btn" id="btn-mode-end" onclick="setMode('end')">
+                    ● Конец
+                </div>
+            </div>
+            <div class="hint">↑ Кликни по карте чтобы установить точку</div>
+        </div>
+
+        <!-- Start point -->
+        <div class="section">
+            <div class="point-badge"><span class="dot start"></span> Начальная точка</div>
+            <div class="coord-row">
+                <div>
+                    <label>Широта (lat)</label>
+                    <input type="number" id="startLat" step="0.0001" placeholder="56.8389" value="56.8376">
+                </div>
+                <div>
+                    <label>Долгота (lon)</label>
+                    <input type="number" id="startLon" step="0.0001" placeholder="60.6057" value="60.6425">
+                </div>
+            </div>
+        </div>
+
+        <!-- End point -->
+        <div class="section">
+            <div class="point-badge"><span class="dot end"></span> Конечная точка</div>
+            <div class="coord-row">
+                <div>
+                    <label>Широта (lat)</label>
+                    <input type="number" id="endLat" step="0.0001" placeholder="56.8580" value="56.8368">
+                </div>
+                <div>
+                    <label>Долгота (lon)</label>
+                    <input type="number" id="endLon" step="0.0001" placeholder="60.6050" value="60.6146">
+                </div>
+            </div>
+        </div>
+
+        <!-- Route mode -->
+        <div class="section">
+            <h3>🚦 Режим маршрута</h3>
+            <div class="route-mode-group">
+                <div class="route-mode-btn active" id="mode-DRIVING" onclick="selectRouteMode('DRIVING')">
+                    <span class="mode-icon">🚗</span>
+                    <span class="mode-label">Авто</span>
+                    <span class="mode-line driving-line"></span>
+                </div>
+                <div class="route-mode-btn" id="mode-PEDESTRIAN" onclick="selectRouteMode('PEDESTRIAN')">
+                    <span class="mode-icon">🚶</span>
+                    <span class="mode-label">Пешком</span>
+                    <span class="mode-line pedestrian-line"></span>
+                </div>
+                <div class="route-mode-btn" id="mode-PUBLIC_TRANSPORT" onclick="selectRouteMode('PUBLIC_TRANSPORT')">
+                    <span class="mode-icon">🚌</span>
+                    <span class="mode-label">Транспорт</span>
+                    <span class="mode-line transit-line"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="section">
+            <button class="btn-calculate" id="calcBtn" onclick="calculateRoute()">
+                → Построить маршрут
+            </button>
+            <button class="btn-clear" onclick="clearAll()">✕ Очистить</button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner" id="spinner">⏳ Вычисляем маршрут...</div>
+
+        <!-- Result -->
+        <div class="result">
+            <div class="result-card" id="resultCard">
+                <h4 id="resultTitle">✓ Маршрут построен</h4>
+                <div class="stat"><span>Дистанция</span><span class="val" id="resDist">—</span></div>
+                <div class="stat"><span>Точек в маршруте</span><span class="val" id="resPoints">—</span></div>
+                <div class="stat"><span>Начало</span><span class="val" id="resStart">—</span></div>
+                <div class="stat"><span>Конец</span><span class="val" id="resEnd">—</span></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== MAP ===== -->
+    <div id="map"></div>
+</div>
+
+<script>
+    // ===== MAP INIT =====
+    // Серо-чёрная карта через CartoDB Positron (светло-серая, чистая)
+    const map = L.map('map', { zoomControl: true }).setView([56.8389, 60.6057], 13);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    // ===== STATE =====
+    let mode = 'start';           // режим клика по карте (start/end)
+    let routeMode = 'DRIVING';    // режим маршрута
+    let startMarker = null;
+    let endMarker = null;
+    let routeLayer = null;        // статичный контур (тонкий серый фон)
+    let animLayer = null;         // SVG-пунктир с анимацией
+    let animTimer = null;         // requestAnimationFrame handle
+
+    // Стили линий для каждого режима маршрута
+    const routeStyles = {
+        DRIVING: {
+            bgColor:    '#999',
+            bgWeight:   2,
+            bgOpacity:  0.35,
+            dashColor:  '#111',
+            dashWeight: 5,
+            dashArray:  '14 10',
+            dashSpeed:  '0.8s',
+            label:      '🚗 Авто'
+        },
+        PEDESTRIAN: {
+            bgColor:    '#aaa',
+            bgWeight:   1.5,
+            bgOpacity:  0.25,
+            dashColor:  '#333',
+            dashWeight: 3,
+            dashArray:  '4 8',
+            dashSpeed:  '1.2s',
+            label:      '🚶 Пешком'
+        },
+        PUBLIC_TRANSPORT: {
+            bgColor:    '#bbb',
+            bgWeight:   2.5,
+            bgOpacity:  0.3,
+            dashColor:  '#111',
+            dashWeight: 6,
+            dashArray:  '18 8',
+            dashSpeed:  '0.6s',
+            label:      '🚌 Транспорт'
+        }
+    };
+
+    // ===== ROUTE MODE SELECTOR =====
+    function selectRouteMode(m) {
+        routeMode = m;
+        document.querySelectorAll('.route-mode-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('mode-' + m).classList.add('active');
+    }
+
+    // Маркеры в чёрно-белом стиле
+    const startIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+            width:18px;height:18px;
+            background:#fff;
+            border:3px solid #222;
+            border-radius:50%;
+            box-shadow:0 2px 8px rgba(0,0,0,0.6)
+        "></div>`,
+        iconAnchor: [9, 9]
+    });
+
+    const endIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+            width:18px;height:18px;
+            background:#222;
+            border:3px solid #fff;
+            border-radius:50%;
+            box-shadow:0 2px 8px rgba(0,0,0,0.8)
+        "></div>`,
+        iconAnchor: [9, 9]
+    });
+
+    // ===== CLICK ON MAP =====
+    map.on('click', function(e) {
+        const lat = e.latlng.lat.toFixed(6);
+        const lon = e.latlng.lng.toFixed(6);
+
+        if (mode === 'start') {
+            document.getElementById('startLat').value = lat;
+            document.getElementById('startLon').value = lon;
+            if (startMarker) map.removeLayer(startMarker);
+            startMarker = L.marker([lat, lon], { icon: startIcon })
+                .addTo(map)
+                .bindPopup(`<b>Начало</b><br>${lat}, ${lon}`)
+                .openPopup();
+            setMode('end');
+        } else {
+            document.getElementById('endLat').value = lat;
+            document.getElementById('endLon').value = lon;
+            if (endMarker) map.removeLayer(endMarker);
+            endMarker = L.marker([lat, lon], { icon: endIcon })
+                .addTo(map)
+                .bindPopup(`<b>Конец</b><br>${lat}, ${lon}`)
+                .openPopup();
+            setMode('start');
+        }
+    });
+
+    // ===== MODE =====
+    function setMode(m) {
+        mode = m;
+        document.getElementById('btn-mode-start').className =
+            'mode-btn' + (m === 'start' ? ' active-start' : '');
+        document.getElementById('btn-mode-end').className =
+            'mode-btn' + (m === 'end' ? ' active-end' : '');
+    }
+
+    // ===== JWT TOGGLE =====
+    function toggleJwt() {
+        const f = document.getElementById('jwt-field');
+        const t = document.querySelector('.jwt-toggle');
+        if (f.style.display === 'none' || f.style.display === '') {
+            f.style.display = 'block';
+            t.textContent = '▼ JWT токен (скрыть)';
+        } else {
+            f.style.display = 'none';
+            t.textContent = '▶ JWT токен (показать)';
+        }
+    }
+
+    // ===== CALCULATE ROUTE =====
+    async function calculateRoute() {
+        const startLat = parseFloat(document.getElementById('startLat').value);
+        const startLon = parseFloat(document.getElementById('startLon').value);
+        const endLat   = parseFloat(document.getElementById('endLat').value);
+        const endLon   = parseFloat(document.getElementById('endLon').value);
+        const jwt      = document.getElementById('jwt').value.trim();
+
+        if (isNaN(startLat) || isNaN(startLon) || isNaN(endLat) || isNaN(endLon)) {
+            showError('Заполните координаты начальной и конечной точки');
+            return;
+        }
+
+        if (!jwt) {
+            showError('Введите JWT токен для авторизации');
+            return;
+        }
+
+        document.getElementById('calcBtn').disabled = true;
+        document.getElementById('spinner').style.display = 'block';
+        document.getElementById('resultCard').style.display = 'none';
+
+        try {
+            const response = await fetch('/api/v1/routes/calculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + jwt
+                },
+                body: JSON.stringify({ startLat, startLon, endLat, endLon, mode: routeMode })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                showError(data.message || `Ошибка ${response.status}`);
+                return;
+            }
+
+            showRoute(data);
+
+        } catch (err) {
+            showError('Ошибка соединения: ' + err.message);
+        } finally {
+            document.getElementById('calcBtn').disabled = false;
+            document.getElementById('spinner').style.display = 'none';
+        }
+    }
+
+    // ===== ANIMATED DOTTED ROUTE =====
+    function clearRouteLayer() {
+        if (animTimer) { cancelAnimationFrame(animTimer); animTimer = null; }
+        if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+        if (animLayer)  { map.removeLayer(animLayer);  animLayer  = null; }
+    }
+
+    function showRoute(data) {
+        clearRouteLayer();
+
+        const latlngs = data.points.map(p => [p.latitude, p.longitude]);
+        const style   = routeStyles[data.mode] || routeStyles['DRIVING'];
+
+        // 1) Фоновая линия — тонкий серый контур
+        routeLayer = L.polyline(latlngs, {
+            color:   style.bgColor,
+            weight:  style.bgWeight,
+            opacity: style.bgOpacity,
+            lineJoin: 'round',
+            lineCap:  'round'
+        }).addTo(map);
+
+        // 2) Анимированный пунктир поверх
+        animLayer = L.polyline(latlngs, {
+            color:     style.dashColor,
+            weight:    style.dashWeight,
+            opacity:   1,
+            lineJoin:  'round',
+            lineCap:   'butt',
+            dashArray: style.dashArray,
+            dashOffset: '0'
+        }).addTo(map);
+
+        // Применяем CSS-анимацию к SVG path (Leaflet рендерит через SVG по умолчанию)
+        requestAnimationFrame(() => {
+            const svgPaths = document.querySelectorAll('.leaflet-overlay-pane svg path');
+            if (svgPaths.length > 0) {
+                const dashPath = svgPaths[svgPaths.length - 1];
+                dashPath.style.strokeDasharray = style.dashArray;
+                dashPath.style.strokeDashoffset = '0';
+                dashPath.style.animation = `dash-flow ${style.dashSpeed} linear infinite`;
+            }
+        });
+
+        // Подгоняем карту
+        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+        // Обновляем маркеры
+        if (startMarker) map.removeLayer(startMarker);
+        if (endMarker)   map.removeLayer(endMarker);
+
+        startMarker = L.marker([data.startLat, data.startLon], { icon: startIcon })
+            .addTo(map)
+            .bindPopup(`<b>Начало</b><br>${data.startLat.toFixed(5)}, ${data.startLon.toFixed(5)}`);
+
+        endMarker = L.marker([data.endLat, data.endLon], { icon: endIcon })
+            .addTo(map)
+            .bindPopup(`<b>Конец</b><br>${data.endLat.toFixed(5)}, ${data.endLon.toFixed(5)}`);
+
+        // Статистика
+        const card = document.getElementById('resultCard');
+        card.className = 'result-card';
+        card.style.display = 'block';
+        document.getElementById('resultTitle').textContent = `✓ Маршрут построен (${style.label})`;
+        document.getElementById('resDist').textContent =
+            `${formatDistance(data.totalDistanceMeters)} / ${data.totalDistanceKm} км`;
+        document.getElementById('resPoints').textContent = data.totalSegments;
+        document.getElementById('resStart').textContent =
+            `${data.startLat.toFixed(4)}, ${data.startLon.toFixed(4)}`;
+        document.getElementById('resEnd').textContent =
+            `${data.endLat.toFixed(4)}, ${data.endLon.toFixed(4)}`;
+    }
+
+    function showError(msg) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('calcBtn').disabled = false;
+        const card = document.getElementById('resultCard');
+        card.className = 'result-card error';
+        card.style.display = 'block';
+        document.getElementById('resultTitle').textContent = '✕ ' + msg;
+        document.getElementById('resDist').textContent = '—';
+        document.getElementById('resPoints').textContent = '—';
+        document.getElementById('resStart').textContent = '—';
+        document.getElementById('resEnd').textContent = '—';
+    }
+
+    function formatDistance(meters) {
+        if (meters >= 1000) return (meters / 1000).toFixed(2) + ' км';
+        return Math.round(meters) + ' м';
+    }
+
+    // ===== CLEAR =====
+    function clearAll() {
+        clearRouteLayer();
+        if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+        if (endMarker)   { map.removeLayer(endMarker);   endMarker   = null; }
+        document.getElementById('startLat').value = '';
+        document.getElementById('startLon').value = '';
+        document.getElementById('endLat').value = '';
+        document.getElementById('endLon').value = '';
+        document.getElementById('resultCard').style.display = 'none';
+        setMode('start');
+    }
+
+    // ===== ENTER KEY =====
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Enter') calculateRoute();
+    });
+
+    // Начальные маркеры
+    startMarker = L.marker([56.8376, 60.6425], { icon: startIcon })
+        .addTo(map)
+        .bindPopup('<b>Начало</b> — Площадь 1905 года');
+
+    endMarker = L.marker([56.8368, 60.6146], { icon: endIcon })
+        .addTo(map)
+        .bindPopup('<b>Конец</b> — ЖД вокзал');
+</script>
+
+</body>
+</html>

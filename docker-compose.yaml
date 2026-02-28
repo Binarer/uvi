@@ -1,0 +1,60 @@
+services:
+  uvi:
+    image: uvi:latest
+    build:
+      context: .
+      args:
+        DOCKER_BUILDKIT: 1
+    restart: "no"
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/uvi
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres_secret
+      MQTT_BROKER_URL: tcp://mosquitto:1883
+      MQTT_CLIENT_ID: uvi-server
+      JWT_SECRET: change-me-to-a-very-long-secret-key-at-least-32-chars
+      JWT_EXPIRATION_MS: 86400000
+      SMS_DEVELOPMENT_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
+  postgres:
+    image: kartoza/postgis:16-3.4
+    restart: "no"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secret
+      POSTGRES_DB: uvi
+      ALLOW_IP_RANGE: 0.0.0.0/0
+    healthcheck:
+      test: pg_isready -U postgres -d uvi
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: "no"
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+volumes:
+  postgres_data:
+  mosquitto_data:
+  mosquitto_log:

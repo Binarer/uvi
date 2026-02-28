@@ -1,0 +1,47 @@
+# Build output
+build/
+out/
+
+# Gradle cache and wrapper (except wrapper jar needed for build)
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Test reports
+test-results/
+reports/
+
+# Documentation (not needed in image)
+*.md
+docs/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files themselves (avoid recursion)
+Dockerfile
+docker-compose*.yaml
+.dockerignore
+
+# Other projects in monorepo (not part of uvi build)
+Joy/
+demosm/
+
+# Temp files
+tmp_rovodev_*
+*.tmp
+*.bak
