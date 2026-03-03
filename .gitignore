@@ -1,30 +1,54 @@
-HELP.md
-.gradle
+# ============================================================
+#  UVI — .gitignore
+# ============================================================
+
+# ── Секреты и конфигурация окружения ────────────────────────
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+src/main/resources/application.yml
+src/main/resources/application-*.yml
+*.env
+.env
+.env.*
+!.env.example
+
+# ── Gradle ──────────────────────────────────────────────────
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-ural-fed-district-260217.osm.pbf
-Diploma.md
-*.md
-result.csv
-tag.csv
-test.log
+gradle-app.setting
+.gradletasknamecache
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
+# ── Java ────────────────────────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
 
-### IntelliJ IDEA ###
-.idea
+# ── Логи ────────────────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ── OSM / GIS данные (могут весить гигабайты) ───────────────
+*.osm
+*.osm.pbf
+*.osm.bz2
+*.osm.gz
+*.shp
+*.dbf
+*.shx
+
+# ── Docker ──────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── IntelliJ IDEA ───────────────────────────────────────────
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -32,12 +56,46 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### NetBeans ###
+# ── Eclipse / STS ───────────────────────────────────────────
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# ── VS Code ─────────────────────────────────────────────────
+.vscode/
+
+# ── NetBeans ─────────────────────────────────────────────────
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
-.vscode/
+# ── macOS ────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Windows ──────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Временные файлы ──────────────────────────────────────────
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# ── Документация (черновики) ─────────────────────────────────
+HELP.md
+Diploma.md
+md

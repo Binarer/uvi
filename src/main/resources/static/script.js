@@ -242,6 +242,16 @@ function setClickMode(m) {
 }
 
 map.on('click', function(e) {
+    // На мобильном — закрываем панель при клике по карте
+    if (window.innerWidth <= 700) {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('panelToggle');
+        if (sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            btn.textContent = '⬆ Панель управления';
+            return;
+        }
+    }
     const lat = e.latlng.lat.toFixed(6), lon = e.latlng.lng.toFixed(6);
     if (clickMode === 'start') {
         document.getElementById('startLat').value = lat;
@@ -532,7 +542,7 @@ function startMqtt() {
 
     // Подключаемся к Mosquitto WebSocket на порту 9001
     const clientId = 'uvi-web-' + Math.random().toString(36).substr(2, 8);
-    mqttClient = mqtt.connect('ws://localhost:9001', { clientId, keepalive: 30 });
+    mqttClient = mqtt.connect('ws://172.16.0.100:9001', { clientId, keepalive: 30 });
 
     mqttClient.on('connect', () => {
         setMqttStatus('ok', 'MQTT подключён');
@@ -626,6 +636,14 @@ function stopMqtt() {
     setMqttStatus('', 'Не подключён');
     document.getElementById('mqttBtnText').textContent = '▶ Начать трекинг';
     document.getElementById('mqttCoords').textContent = '';
+}
+
+// ===== MOBILE PANEL TOGGLE =====
+function togglePanel() {
+    const sidebar = document.getElementById('sidebar');
+    const btn = document.getElementById('panelToggle');
+    const isOpen = sidebar.classList.toggle('open');
+    btn.textContent = isOpen ? '⬇ Скрыть панель' : '⬆ Панель управления';
 }
 
 // ===== KEYBOARD =====

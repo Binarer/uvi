@@ -26,7 +26,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String firstName;
 
     @Column(length = 100)
@@ -38,14 +38,11 @@ public class User {
     @Column(unique = true, length = 100)
     private String username;
 
-    @Column(nullable = false)
-    private String passwordHash;
-
     @Column
     private LocalDate dateOfBirth;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private UserRole role;
 
     @Enumerated(EnumType.STRING)
