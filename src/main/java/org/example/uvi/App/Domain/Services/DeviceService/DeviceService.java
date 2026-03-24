@@ -2,6 +2,7 @@ package org.example.uvi.App.Domain.Services.DeviceService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.uvi.App.Domain.Enums.OsType.OsType;
 import org.example.uvi.App.Domain.Models.Device.Device;
 import org.example.uvi.App.Domain.Models.User.User;
 import org.example.uvi.App.Domain.Repository.DeviceRepository.DeviceRepository;
@@ -29,7 +30,7 @@ public class DeviceService {
 
     @Transactional
     @CacheEvict(value = "devices", key = "#userId")
-    public Device registerDevice(Long userId, String deviceToken, Device.OsType osType) {
+    public Device registerDevice(Long userId, String deviceToken, OsType osType) {
         User user = userService.getUserById(userId);
 
         // Если устройство уже зарегистрировано — обновляем

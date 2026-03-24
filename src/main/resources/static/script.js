@@ -542,7 +542,7 @@ function startMqtt() {
 
     // Подключаемся к Mosquitto WebSocket на порту 9001
     const clientId = 'uvi-web-' + Math.random().toString(36).substr(2, 8);
-    mqttClient = mqtt.connect('ws://172.16.0.100:9001', { clientId, keepalive: 30 });
+    mqttClient = mqtt.connect('ws://10.248.49.239:9001', { clientId, keepalive: 30 });
 
     mqttClient.on('connect', () => {
         setMqttStatus('ok', 'MQTT подключён');

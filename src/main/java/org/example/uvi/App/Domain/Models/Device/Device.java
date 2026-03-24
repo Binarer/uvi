@@ -2,6 +2,7 @@ package org.example.uvi.App.Domain.Models.Device;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.example.uvi.App.Domain.Enums.OsType.OsType;
 import org.example.uvi.App.Domain.Models.User.User;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -36,8 +37,4 @@ public class Device {
     @UpdateTimestamp
     @Column(name = "last_active_at")
     private Instant lastActiveAt;
-
-    public enum OsType {
-        IOS, ANDROID
-    }
 }
