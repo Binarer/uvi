@@ -14,9 +14,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres_secret
       MQTT_BROKER_URL: tcp://mosquitto:1883
       MQTT_CLIENT_ID: uvi-server
-      JWT_SECRET: change-me-to-a-very-long-secret-key-at-least-32-chars
-      JWT_EXPIRATION_MS: 86400000
-      SMS_DEVELOPMENT_MODE: "true"
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-very-long-secret-key-at-least-32-chars}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      SMS_DEVELOPMENT_MODE: ${SMS_DEVELOPMENT_MODE:-true}
+      SMS_AERO_EMAIL: ${SMS_AERO_EMAIL:-your-email@example.com}
+      SMS_AERO_API_KEY: ${SMS_AERO_API_KEY:-your-api-key}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
     depends_on:
       postgres:
         condition: service_healthy

@@ -96,6 +96,16 @@
     <!-- ===== SIDEBAR ===== -->
     <div class="sidebar" id="sidebar">
 
+        <!-- Поиск мест и адресов -->
+        <div class="section">
+            <h3>🔍 Поиск мест и адресов</h3>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Название или адрес..." onkeydown="if(event.key==='Enter') searchPlaces()">
+                <button class="btn-search" onclick="searchPlaces()">Найти</button>
+            </div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+
         <!-- Выбор точек на карте -->
         <div class="section">
             <h3>📍 Выбор точек на карте</h3>

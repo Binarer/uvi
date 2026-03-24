@@ -92,4 +92,10 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             "WHERE pt.tag_id = :tagId AND p.is_active = true",
             nativeQuery = true)
     List<Place> findByTagId(@Param("tagId") Long tagId);
+
+    @Query("SELECT p FROM Place p WHERE p.isActive = true AND " +
+            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(p.address) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<Place> searchPlaces(@Param("query") String query);
 }

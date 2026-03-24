@@ -30,6 +30,8 @@ public interface FamilyMemberRepository extends JpaRepository<FamilyMember, Long
 
     boolean existsByFamilyAndUserAndIsActive(Family family, User user, Boolean isActive);
 
+    boolean existsByUserAndIsActive(User user, Boolean isActive);
+
     @Query("SELECT COUNT(fm) FROM FamilyMember fm WHERE fm.family.id = :familyId AND fm.isActive = true")
     Long countActiveMembersByFamilyId(@Param("familyId") Long familyId);
 }

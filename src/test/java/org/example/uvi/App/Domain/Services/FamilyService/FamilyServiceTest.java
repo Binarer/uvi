@@ -66,7 +66,7 @@ class FamilyServiceTest {
         });
         when(familyMemberRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Family result = familyService.createFamily(1L, "My Family", "Description");
+        Family result = familyService.createFamily(1L, "My Family", "Description", "http://avatar.url");
 
         assertNotNull(result);
         assertEquals("My Family", result.getName());
@@ -116,7 +116,7 @@ class FamilyServiceTest {
 
         when(familyRepository.findByIdActive(1L)).thenReturn(Optional.of(family));
         when(userService.getUserById(2L)).thenReturn(newUser);
-        when(familyMemberRepository.existsByFamilyAndUserAndIsActive(family, newUser, true)).thenReturn(false);
+        when(familyMemberRepository.existsByUserAndIsActive(newUser, true)).thenReturn(false);
         when(familyMemberRepository.countActiveMembersByFamilyId(1L)).thenReturn(1L);
         when(familyMemberRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -131,7 +131,7 @@ class FamilyServiceTest {
         User existing = User.builder().id(2L).build();
         when(familyRepository.findByIdActive(1L)).thenReturn(Optional.of(family));
         when(userService.getUserById(2L)).thenReturn(existing);
-        when(familyMemberRepository.existsByFamilyAndUserAndIsActive(family, existing, true)).thenReturn(true);
+        when(familyMemberRepository.existsByUserAndIsActive(existing, true)).thenReturn(true);
 
         assertThrows(IllegalStateException.class,
                 () -> familyService.addMember(1L, 2L, FamilyMemberRole.MEMBER, 1L));

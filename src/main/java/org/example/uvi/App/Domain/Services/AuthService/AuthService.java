@@ -11,7 +11,7 @@ import org.example.uvi.App.Domain.Repository.UserRepository.UserRepository;
 import org.example.uvi.App.Domain.Services.RefreshTokenService.RefreshTokenService;
 import org.example.uvi.App.Domain.Services.SmsService.SmsService;
 import org.example.uvi.App.Domain.Services.TwoFactorService.TwoFactorService;
-import org.example.uvi.App.Infrastructure.Http.Dto.AuthResponse;
+import org.example.uvi.App.Infrastructure.Http.Dto.AuthDto.AuthResponse;
 import org.example.uvi.App.Infrastructure.Security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -110,7 +110,7 @@ public class AuthService {
         userRepository.save(user);
 
         // Если 2FA включён — возвращаем tempToken
-        if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
+        if (user.isTwoFactorEnabled()) {
             String tempToken = jwtService.generateAccessToken(user.getId(), user.getPhoneNumber());
             log.info("2FA required for user {}", user.getId());
             return AuthResponse.twoFactorRequired(tempToken);
@@ -127,7 +127,7 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
-        if (!Boolean.TRUE.equals(user.getTwoFactorEnabled()) || user.getTwoFactorSecret() == null) {
+        if (!user.isTwoFactorEnabled() || user.getTwoFactorSecret() == null) {
             throw new IllegalStateException("2FA не настроен для этого пользователя");
         }
 

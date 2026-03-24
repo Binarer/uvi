@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.uvi.App.Domain.Enums.RouteMode.RouteMode;
 import org.example.uvi.App.Domain.Repository.WaysRepository.WaysRepository;
-import org.example.uvi.App.Infrastructure.Http.Dto.RouteDto;
-import org.example.uvi.App.Infrastructure.Http.Dto.RoutePointDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.RouteDto.RouteDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.RouteDto.RoutePointDto;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -76,16 +76,29 @@ public class RouteService {
             }
         }
 
-        // Суммарная дистанция (cost хранит метры в pgRouting с OSM данными)
-        double totalDistanceMeters = rows.stream()
-                .mapToDouble(row -> toDouble(row[3]))
-                .filter(c -> c >= 0)
-                .sum();
+        // Суммарная дистанция (cost хранит метры в pgRouting).
+        // Суммируем только уникальные шаги маршрута (seq), так как для каждого ребра может быть несколько точек.
+        double totalDistanceMeters = 0;
+        Integer lastSeq = null;
+        for (Object[] row : rows) {
+            int seq = ((Number) row[0]).intValue();
+            double cost = toDouble(row[3]);
+            if (lastSeq == null || seq != lastSeq) {
+                if (cost > 0) {
+                    totalDistanceMeters += cost;
+                }
+                lastSeq = seq;
+            }
+        }
+
+        // Last-mile: прямые линии от/до реальных точек (вход/выход из здания)
+        double firstMile = calculateDistance(startLat, startLon, routePoints.get(0).latitude(), routePoints.get(0).longitude());
+        double lastMile = calculateDistance(routePoints.get(routePoints.size() - 1).latitude(), routePoints.get(routePoints.size() - 1).longitude(), endLat, endLon);
+        totalDistanceMeters += (firstMile + lastMile);
 
         double totalDistanceMetersRounded = Math.round(totalDistanceMeters * 10.0) / 10.0;
         double totalDistanceKm = Math.round((totalDistanceMeters / 1000.0) * 1000.0) / 1000.0;
 
-        // Last-mile: прямые линии от/до реальных точек (вход/выход из здания)
         List<RoutePointDto> points = new ArrayList<>();
         points.add(new RoutePointDto(startLat, startLon));
         points.addAll(routePoints);
@@ -111,5 +124,19 @@ public class RouteService {
         if (value == null) return 0.0;
         if (value instanceof Number n) return n.doubleValue();
         return Double.parseDouble(value.toString());
+    }
+
+    /**
+     * Расчет расстояния между двумя точками (Haversine formula).
+     */
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Radius of the earth in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c * 1000; // convert to meters
     }
 }

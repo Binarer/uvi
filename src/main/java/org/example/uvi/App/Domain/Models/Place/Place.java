@@ -1,10 +1,7 @@
 package org.example.uvi.App.Domain.Models.Place;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.example.uvi.App.Domain.Enums.PlaceType.PlaceType;
 import org.example.uvi.App.Domain.Models.Tag.Tag;
 import org.example.uvi.App.Domain.Models.User.User;
@@ -12,11 +9,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.locationtech.jts.geom.Point;
 
+import org.hibernate.proxy.HibernateProxy;
+
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(name = "places", indexes = {
@@ -24,7 +20,8 @@ import java.util.Set;
         @Index(name = "idx_place_created_by", columnList = "created_by_id"),
         @Index(name = "idx_place_location", columnList = "location")
 })
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -90,9 +87,9 @@ public class Place {
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;
 
-    @Column(name = "is_active")
+    @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private Boolean isActive = true;
+    private boolean isActive = true;    
 
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
@@ -126,5 +123,21 @@ public class Place {
             this.latitude = location.getY();
             this.longitude = location.getX();
         }
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        Place place = (Place) o;
+        return getId() != null && Objects.equals(getId(), place.getId());
+    }
+
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

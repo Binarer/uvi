@@ -17,7 +17,7 @@ import java.util.List;
 @Configuration
 public class OpenApiConfig {
 
-    @Value("${app.url:http://localhost:8080}")
+    @Value("${app.url:http://localhost:8888}")
     private String serverUrl;
 
     @Bean

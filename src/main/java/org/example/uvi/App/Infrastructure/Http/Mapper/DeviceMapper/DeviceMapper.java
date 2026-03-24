@@ -1,7 +1,7 @@
 package org.example.uvi.App.Infrastructure.Http.Mapper.DeviceMapper;
 
 import org.example.uvi.App.Domain.Models.Device.Device;
-import org.example.uvi.App.Infrastructure.Http.Dto.DeviceDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.DeviceDto.DeviceDto;
 import org.springframework.stereotype.Component;
 
 @Component

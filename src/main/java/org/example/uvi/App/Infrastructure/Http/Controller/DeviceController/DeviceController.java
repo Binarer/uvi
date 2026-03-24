@@ -1,13 +1,15 @@
 package org.example.uvi.App.Infrastructure.Http.Controller.DeviceController;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.uvi.App.Domain.Services.DeviceService.DeviceService;
-import org.example.uvi.App.Infrastructure.Http.Dto.DeviceDto;
-import org.example.uvi.App.Infrastructure.Http.Dto.DeviceRequest;
+import org.example.uvi.App.Infrastructure.Http.Dto.DeviceDto.DeviceDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.DeviceDto.RegisterDeviceRequest;
 import org.example.uvi.App.Infrastructure.Http.Mapper.DeviceMapper.DeviceMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,10 +30,13 @@ public class DeviceController {
     private final DeviceMapper deviceMapper;
 
     @PostMapping
-    @Operation(summary = "Register a device for push notifications")
+    @Operation(
+            summary = "Register or update a device",
+            description = "Registers a new device token or updates an existing one for the current user."
+    )
     public ResponseEntity<DeviceDto> registerDevice(
             Authentication auth,
-            @Valid @RequestBody DeviceRequest request) {
+            @Valid @RequestBody RegisterDeviceRequest request) {
         Long userId = (Long) auth.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 deviceMapper.toDto(deviceService.registerDevice(userId, request.deviceToken(), request.osType())));
@@ -45,21 +50,18 @@ public class DeviceController {
                 .map(deviceMapper::toDto).toList());
     }
 
-    @DeleteMapping("/{deviceId}")
-    @Operation(summary = "Unregister a device")
-    public ResponseEntity<Void> deleteDevice(
+    @DeleteMapping("/{id}")
+    @Operation(
+            summary = "Unregister a device",
+            description = "Deletes a device registration by its record ID."
+    )
+    @ApiResponse(responseCode = "204", description = "Device unregistered successfully")
+    public ResponseEntity<Void> unregisterDevice(
             Authentication auth,
-            @PathVariable UUID deviceId) {
+            @Parameter(description = "ID of the device record", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable UUID id) {
         Long userId = (Long) auth.getPrincipal();
-        deviceService.deleteDevice(userId, deviceId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping
-    @Operation(summary = "Unregister all devices for current user")
-    public ResponseEntity<Void> deleteAllDevices(Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        deviceService.deleteAllUserDevices(userId);
+        deviceService.deleteDevice(userId, id);
         return ResponseEntity.noContent().build();
     }
 }

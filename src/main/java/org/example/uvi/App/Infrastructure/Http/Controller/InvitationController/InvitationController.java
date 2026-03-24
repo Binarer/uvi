@@ -1,14 +1,15 @@
 package org.example.uvi.App.Infrastructure.Http.Controller.InvitationController;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.uvi.App.Domain.Models.Family.FamilyInvitation;
 import org.example.uvi.App.Domain.Services.FamilyInvitationService.FamilyInvitationService;
-import org.example.uvi.App.Infrastructure.Http.Dto.CreateInvitationRequest;
-import org.example.uvi.App.Infrastructure.Http.Dto.InvitationDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.InvitationDto.CreateInvitationRequest;
+import org.example.uvi.App.Infrastructure.Http.Dto.InvitationDto.InvitationDto;
 import org.example.uvi.App.Infrastructure.Http.Mapper.InvitationMapper.InvitationMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,50 +29,45 @@ public class InvitationController {
     private final InvitationMapper invitationMapper;
 
     @PostMapping("/families/{familyId}")
-    @Operation(summary = "Create an invitation for a family")
-    public ResponseEntity<InvitationDto> createInvitation(
+    @Operation(summary = "Send an invitation to join a family")
+    public ResponseEntity<InvitationDto> sendInvitation(
             Authentication auth,
             @PathVariable Long familyId,
             @Valid @RequestBody CreateInvitationRequest request) {
-        Long userId = (Long) auth.getPrincipal();
-        FamilyInvitation invitation = invitationService.createInvitation(
-                familyId, userId, request.inviteePhone(), request.message());
-        return ResponseEntity.status(HttpStatus.CREATED).body(invitationMapper.toDto(invitation));
+        Long inviterId = (Long) auth.getPrincipal();
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                invitationMapper.toDto(invitationService.createInvitation(
+                        familyId, inviterId, request.inviteePhone(), request.message())));
     }
 
     @PostMapping("/{code}/accept")
     @Operation(summary = "Accept a family invitation")
+    @ApiResponse(responseCode = "204", description = "Invitation accepted successfully")
     public ResponseEntity<Void> acceptInvitation(
             Authentication auth,
+            @Parameter(description = "Invitation code", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String code) {
         Long userId = (Long) auth.getPrincipal();
         invitationService.acceptInvitation(code, userId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/{code}/decline")
-    @Operation(summary = "Decline a family invitation")
-    public ResponseEntity<Void> declineInvitation(
-            Authentication auth,
-            @PathVariable String code) {
-        Long userId = (Long) auth.getPrincipal();
-        invitationService.declineInvitation(code, userId);
-        return ResponseEntity.ok().build();
-    }
-
-    @DeleteMapping("/{code}")
-    @Operation(summary = "Cancel a sent invitation (inviter only)")
-    public ResponseEntity<Void> cancelInvitation(
-            Authentication auth,
-            @PathVariable String code) {
-        Long userId = (Long) auth.getPrincipal();
-        invitationService.cancelInvitation(code, userId);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/my")
-    @Operation(summary = "Get current user's pending invitations")
-    public ResponseEntity<List<InvitationDto>> getMyInvitations(Authentication auth) {
+    @PostMapping("/{code}/reject")
+    @Operation(summary = "Reject a family invitation")
+    @ApiResponse(responseCode = "204", description = "Invitation rejected successfully")
+    public ResponseEntity<Void> rejectInvitation(
+            Authentication auth,
+            @Parameter(description = "Invitation code", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String code) {
+        Long userId = (Long) auth.getPrincipal();
+        invitationService.declineInvitation(code, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/my/pending")
+    @Operation(summary = "Get pending invitations for current user")
+    @ApiResponse(responseCode = "200", description = "Pending invitations retrieved successfully")
+    public ResponseEntity<List<InvitationDto>> getMyPendingInvitations(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         return ResponseEntity.ok(invitationService.getUserPendingInvitations(userId).stream()
                 .map(invitationMapper::toDto).toList());
@@ -79,7 +75,9 @@ public class InvitationController {
 
     @GetMapping("/families/{familyId}")
     @Operation(summary = "Get all invitations for a family")
-    public ResponseEntity<List<InvitationDto>> getFamilyInvitations(@PathVariable Long familyId) {
+    public ResponseEntity<List<InvitationDto>> getFamilyInvitations(
+            @Parameter(description = "ID of the family", example = "10")
+            @PathVariable Long familyId) {
         return ResponseEntity.ok(invitationService.getFamilyInvitations(familyId).stream()
                 .map(invitationMapper::toDto).toList());
     }

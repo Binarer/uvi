@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.uvi.App.Domain.Models.UserLocation.UserLocation;
 import org.example.uvi.App.Domain.Services.UserLocationService.UserLocationService;
-import org.example.uvi.App.Infrastructure.Http.Dto.UserLocationDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.UserLocationDto.UserLocationDto;
 import org.example.uvi.App.Infrastructure.Http.Mapper.UserLocationMapper.UserLocationMapper;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.Message;

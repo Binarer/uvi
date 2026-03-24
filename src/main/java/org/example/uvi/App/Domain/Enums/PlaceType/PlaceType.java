@@ -19,6 +19,10 @@ public enum PlaceType {
     CONFERENCE("Конференция"),
     WORKSHOP("Мастер-класс"),
     PARTY("Вечеринка"),
+    SIGHT("Достопримечательность"),
+    SHOPPING("Торговый центр"),
+    STREET("Улица"),
+    SQUARE("Площадь"),
     OTHER("Другое");
 
     private final String displayName;

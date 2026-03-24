@@ -1,7 +1,7 @@
 package org.example.uvi.App.Infrastructure.Http.Mapper.UserLocationMapper;
 
 import org.example.uvi.App.Domain.Models.UserLocation.UserLocation;
-import org.example.uvi.App.Infrastructure.Http.Dto.UserLocationDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.UserLocationDto.UserLocationDto;
 import org.springframework.stereotype.Component;
 
 @Component

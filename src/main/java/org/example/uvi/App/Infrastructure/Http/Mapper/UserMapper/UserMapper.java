@@ -1,7 +1,7 @@
 package org.example.uvi.App.Infrastructure.Http.Mapper.UserMapper;
 
 import org.example.uvi.App.Domain.Models.User.User;
-import org.example.uvi.App.Infrastructure.Http.Dto.UserDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.UserDto.UserDto;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,7 +21,7 @@ public class UserMapper {
                 user.getCity(),
                 user.getLatitude(),
                 user.getLongitude(),
-                user.getPhoneVerified(),
+                user.isPhoneVerified(),
                 user.getCreatedAt(),
                 user.getLastLoginAt()
         );

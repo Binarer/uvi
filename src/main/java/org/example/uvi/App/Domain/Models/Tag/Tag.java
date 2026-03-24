@@ -1,16 +1,14 @@
 package org.example.uvi.App.Domain.Models.Tag;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.example.uvi.App.Domain.Enums.Interest.Interest;
 import org.example.uvi.App.Domain.Models.Place.Place;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Entity
@@ -18,7 +16,8 @@ import java.util.Set;
         @Index(name = "idx_tag_interest", columnList = "interest"),
         @Index(name = "idx_tag_name", columnList = "name")
 })
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -56,5 +55,18 @@ public class Tag {
 
     public void decrementUsageCount() {
         this.usageCount = (this.usageCount == null || this.usageCount <= 0) ? 0 : this.usageCount - 1;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Tag tag = (Tag) o;
+        return Objects.equals(id, tag.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }

@@ -36,7 +36,7 @@ public class PlaceService {
     @Cacheable(value = "places", key = "#id")
     public Place getPlaceById(Long id) {
         return placeRepository.findById(id)
-                .filter(p -> p.getIsActive())
+                .filter(Place::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Place not found: " + id));
     }
 
@@ -113,7 +113,7 @@ public class PlaceService {
     @CacheEvict(value = "places", key = "#id")
     public void deletePlace(Long id) {
         Place place = getPlaceById(id);
-        place.setIsActive(false);
+        place.setActive(false);
         placeRepository.save(place);
         log.info("Place {} deactivated", id);
     }
@@ -171,5 +171,12 @@ public class PlaceService {
     public List<Place> findByInterestsNearby(List<String> interests,
                                               double latitude, double longitude, double radiusMeters) {
         return placeRepository.findByInterestsNearby(interests, latitude, longitude, radiusMeters);
+    }
+
+    public List<Place> searchPlaces(String query) {
+        if (query == null || query.isBlank()) {
+            return getAllPlaces();
+        }
+        return placeRepository.searchPlaces(query);
     }
 }

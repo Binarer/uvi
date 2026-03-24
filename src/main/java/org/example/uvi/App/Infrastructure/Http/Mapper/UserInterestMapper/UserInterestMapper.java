@@ -1,7 +1,7 @@
 package org.example.uvi.App.Infrastructure.Http.Mapper.UserInterestMapper;
 
 import org.example.uvi.App.Domain.Models.UserInterest.UserInterest;
-import org.example.uvi.App.Infrastructure.Http.Dto.UserInterestDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.UserInterestDto.UserInterestDto;
 import org.springframework.stereotype.Component;
 
 @Component

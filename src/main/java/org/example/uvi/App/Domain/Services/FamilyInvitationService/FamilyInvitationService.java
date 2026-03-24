@@ -44,9 +44,9 @@ public class FamilyInvitationService {
 
         if (invitee.isPresent()) {
             boolean alreadyMember = familyMemberRepository
-                    .existsByFamilyAndUserAndIsActive(family, invitee.get(), true);
+                    .existsByUserAndIsActive(invitee.get(), true);
             if (alreadyMember) {
-                throw new IllegalStateException("User is already a family member");
+                throw new IllegalStateException("Пользователь уже является членом семьи. У одного человека может быть только одна семья.");
             }
 
             boolean alreadyInvited = invitationRepository.existsActiveInvitation(
@@ -76,6 +76,13 @@ public class FamilyInvitationService {
     public FamilyMember acceptInvitation(String invitationCode, Long userId) {
         FamilyInvitation invitation = getActiveInvitation(invitationCode);
         User user = userService.getUserById(userId);
+
+        if (familyMemberRepository.existsByUserAndIsActive(user, true)) {
+            invitation.setStatus(InvitationStatus.DECLINED); // Или другой статус, если нужно
+            invitation.setRespondedAt(LocalDateTime.now());
+            invitationRepository.save(invitation);
+            throw new IllegalStateException("Вы уже состоите в семье. Чтобы вступить в новую, сначала покиньте текущую.");
+        }
 
         invitation.setStatus(InvitationStatus.ACCEPTED);
         invitation.setRespondedAt(LocalDateTime.now());

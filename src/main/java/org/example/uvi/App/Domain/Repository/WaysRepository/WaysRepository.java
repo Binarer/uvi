@@ -78,8 +78,9 @@ public class WaysRepository {
             case PEDESTRIAN ->
                 // Пешеходы: тропы, дорожки, ступени, жилые улицы, грунтовки.
                 // Двустороннее движение — reverse_cost = cost.
-                // configuration.tag_id — это PK таблицы (не id!)
-                "SELECT w.gid AS id, w.source, w.target, w.cost AS cost, w.cost AS reverse_cost " +
+                // Используем ST_Length(the_geom::geography) для точного расчета в метрах.
+                "SELECT w.gid AS id, w.source, w.target, " +
+                "ST_Length(w.the_geom::geography) AS cost, ST_Length(w.the_geom::geography) AS reverse_cost " +
                 "FROM ways w " +
                 "WHERE w.tag_id IN (" +
                 "  SELECT tag_id FROM configuration WHERE tag_value IN (" +
@@ -89,8 +90,9 @@ public class WaysRepository {
                 ")";
             case PUBLIC_TRANSPORT ->
                 // Общественный транспорт: основные дороги + съезды + развязки.
-                // Учитываем одностороннее движение через reverse_cost.
-                "SELECT w.gid AS id, w.source, w.target, w.cost AS cost, w.reverse_cost AS reverse_cost " +
+                "SELECT w.gid AS id, w.source, w.target, " +
+                "ST_Length(w.the_geom::geography) AS cost, " +
+                "CASE WHEN w.one_way = 1 THEN -1 ELSE ST_Length(w.the_geom::geography) END AS reverse_cost " +
                 "FROM ways w " +
                 "WHERE w.tag_id IN (" +
                 "  SELECT tag_id FROM configuration WHERE tag_value IN (" +
@@ -101,8 +103,9 @@ public class WaysRepository {
                 ")";
             case DRIVING ->
                 // Авто: все дороги кроме сугубо пешеходных/велосипедных.
-                // Включает motorway, trunk, primary и все их link-варианты.
-                "SELECT w.gid AS id, w.source, w.target, w.cost AS cost, w.reverse_cost AS reverse_cost " +
+                "SELECT w.gid AS id, w.source, w.target, " +
+                "ST_Length(w.the_geom::geography) AS cost, " +
+                "CASE WHEN w.one_way = 1 THEN -1 ELSE ST_Length(w.the_geom::geography) END AS reverse_cost " +
                 "FROM ways w " +
                 "WHERE w.tag_id NOT IN (" +
                 "  SELECT tag_id FROM configuration WHERE tag_value IN (" +
@@ -130,29 +133,47 @@ public class WaysRepository {
             "  FROM pgr_dijkstra('" + edgeSql + "', :startVertex, :endVertex, true) AS path" +
             ")" +
             " SELECT" +
-            "   route.seq, route.node, route.edge, route.cost," +
+            "   r.seq, r.node, r.edge, r.cost," +
             "   ST_X((dp).geom) AS lon," +
             "   ST_Y((dp).geom) AS lat," +
             "   (dp).path[1] AS point_idx" +
-            " FROM route" +
-            " JOIN ways w ON w.gid = route.edge" +
+            " FROM route r" +
+            " JOIN ways w ON w.gid = r.edge" +
             " CROSS JOIN LATERAL ST_DumpPoints(" +
-            "   CASE WHEN route.node = w.source THEN w.the_geom ELSE ST_Reverse(w.the_geom) END" +
+            "   CASE WHEN r.node = w.source THEN w.the_geom ELSE ST_Reverse(w.the_geom) END" +
             " ) AS dp" +
             " UNION ALL" +
             " SELECT" +
-            "   route.seq, route.node, route.edge, route.cost," +
+            "   r.seq, r.node, r.edge, r.cost," +
             "   ST_X(v.the_geom) AS lon," +
             "   ST_Y(v.the_geom) AS lat," +
             "   0 AS point_idx" +
-            " FROM route" +
-            " JOIN ways_vertices_pgr v ON v.id = route.node" +
-            " WHERE route.edge = -1" +
+            " FROM route r" +
+            " JOIN ways_vertices_pgr v ON v.id = r.node" +
+            " WHERE r.edge = -1" +
             " ORDER BY seq, point_idx";
 
         return em.createNativeQuery(query)
                 .setParameter("startVertex", startVertex)
                 .setParameter("endVertex", endVertex)
+                .getResultList();
+    }
+
+    /**
+     * Поиск улиц по названию в таблице ways.
+     * Возвращает список: [name, lat, lon]
+     */
+    @SuppressWarnings("unchecked")
+    public List<Object[]> searchStreets(String query) {
+        String sql =
+            "SELECT DISTINCT name, ST_Y(ST_Centroid(the_geom)) as lat, ST_X(ST_Centroid(the_geom)) as lon " +
+            "FROM ways " +
+            "WHERE name ILIKE :query " +
+            "AND name IS NOT NULL " +
+            "LIMIT 10";
+
+        return em.createNativeQuery(sql)
+                .setParameter("query", "%" + query + "%")
                 .getResultList();
     }
 }

@@ -26,12 +26,17 @@ public class FamilyService {
     private final UserService userService;
 
     @Transactional
-    public Family createFamily(Long creatorId, String name, String description) {
+    public Family createFamily(Long creatorId, String name, String description, String avatarUrl) {
         User creator = userService.getUserById(creatorId);
+
+        if (familyMemberRepository.existsByUserAndIsActive(creator, true)) {
+            throw new IllegalStateException("Пользователь уже является членом семьи. У одного человека может быть только одна семья.");
+        }
 
         Family family = Family.builder()
                 .name(name)
                 .description(description)
+                .avatarUrl(avatarUrl)
                 .creator(creator)
                 .status(FamilyStatus.ACTIVE)
                 .build();
@@ -99,8 +104,8 @@ public class FamilyService {
 
         User user = userService.getUserById(userId);
 
-        if (familyMemberRepository.existsByFamilyAndUserAndIsActive(family, user, true)) {
-            throw new IllegalStateException("User is already a member of this family");
+        if (familyMemberRepository.existsByUserAndIsActive(user, true)) {
+            throw new IllegalStateException("Пользователь уже является членом семьи. У одного человека может быть только одна семья.");
         }
 
         long currentCount = familyMemberRepository.countActiveMembersByFamilyId(familyId);
@@ -154,6 +159,27 @@ public class FamilyService {
     public List<FamilyMember> getFamilyMembers(Long familyId) {
         Family family = getFamilyById(familyId);
         return familyMemberRepository.findByFamilyAndIsActive(family, true);
+    }
+
+    @Transactional
+    public void leaveFamily(Long userId) {
+        User user = userService.getUserById(userId);
+        FamilyMember member = familyMemberRepository.findByUser(user).stream()
+                .filter(FamilyMember::getIsActive)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("User is not a member of any family"));
+
+        Family family = member.getFamily();
+
+        if (family.getCreator().getId().equals(userId)) {
+            // Если уходит создатель, удаляем всю семью
+            deleteFamily(family.getId(), userId);
+        } else {
+            member.setIsActive(false);
+            member.setLeftAt(LocalDateTime.now());
+            familyMemberRepository.save(member);
+            log.info("User {} left family {}", userId, family.getId());
+        }
     }
 
     private void checkAdminAccess(Family family, Long userId) {

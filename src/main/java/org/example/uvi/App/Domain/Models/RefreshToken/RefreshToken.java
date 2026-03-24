@@ -1,10 +1,7 @@
 package org.example.uvi.App.Domain.Models.RefreshToken;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.example.uvi.App.Domain.Models.User.User;
 
 import java.time.Instant;
@@ -14,7 +11,8 @@ import java.time.Instant;
         @Index(name = "idx_refresh_token_user", columnList = "user_id"),
         @Index(name = "idx_refresh_token_value", columnList = "token", unique = true)
 })
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

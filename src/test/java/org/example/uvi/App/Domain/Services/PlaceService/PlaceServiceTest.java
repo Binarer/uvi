@@ -74,7 +74,7 @@ class PlaceServiceTest {
 
     @Test
     void getPlaceById_WhenInactive_ThrowsException() {
-        testPlace.setIsActive(false);
+        testPlace.setActive(false);
         when(placeRepository.findById(1L)).thenReturn(Optional.of(testPlace));
 
         assertThrows(IllegalArgumentException.class, () -> placeService.getPlaceById(1L));
@@ -86,7 +86,7 @@ class PlaceServiceTest {
         when(placeRepository.save(any(Place.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Place result = placeService.createPlace(1L, "New Bar", "desc", PlaceType.BAR,
-                "Street 1", 55.7, 37.6, null, null, null);
+                "Street 1", 55.7, 37.6, null, null, null, null, null, null);
 
         assertNotNull(result);
         assertEquals("New Bar", result.getName());
@@ -101,7 +101,7 @@ class PlaceServiceTest {
 
         placeService.deletePlace(1L);
 
-        assertFalse(testPlace.getIsActive());
+        assertFalse(testPlace.isActive());
         verify(placeRepository).save(testPlace);
     }
 

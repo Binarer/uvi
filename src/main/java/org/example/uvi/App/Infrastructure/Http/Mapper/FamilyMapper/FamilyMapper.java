@@ -2,8 +2,8 @@ package org.example.uvi.App.Infrastructure.Http.Mapper.FamilyMapper;
 
 import org.example.uvi.App.Domain.Models.Family.Family;
 import org.example.uvi.App.Domain.Models.Family.FamilyMember;
-import org.example.uvi.App.Infrastructure.Http.Dto.FamilyDto;
-import org.example.uvi.App.Infrastructure.Http.Dto.FamilyMemberDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.FamilyDto.FamilyDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.FamilyDto.FamilyMemberDto;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

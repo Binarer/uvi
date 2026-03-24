@@ -67,7 +67,7 @@ class FamilyInvitationServiceTest {
         when(familyService.getFamilyById(1L)).thenReturn(family);
         when(userService.getUserById(1L)).thenReturn(inviter);
         when(userRepository.findByPhoneNumberActive("79002222222")).thenReturn(Optional.of(invitee));
-        when(familyMemberRepository.existsByFamilyAndUserAndIsActive(family, invitee, true)).thenReturn(false);
+        when(familyMemberRepository.existsByUserAndIsActive(invitee, true)).thenReturn(false);
         when(invitationRepository.existsActiveInvitation(eq(1L), eq(2L), any())).thenReturn(false);
         when(invitationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -83,7 +83,7 @@ class FamilyInvitationServiceTest {
         when(familyService.getFamilyById(1L)).thenReturn(family);
         when(userService.getUserById(1L)).thenReturn(inviter);
         when(userRepository.findByPhoneNumberActive("79002222222")).thenReturn(Optional.of(invitee));
-        when(familyMemberRepository.existsByFamilyAndUserAndIsActive(family, invitee, true)).thenReturn(true);
+        when(familyMemberRepository.existsByUserAndIsActive(invitee, true)).thenReturn(true);
 
         assertThrows(IllegalStateException.class,
                 () -> invitationService.createInvitation(1L, 1L, "79002222222", null));

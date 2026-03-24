@@ -18,6 +18,47 @@ let animLayer      = null;
 let mqttClient     = null;
 let mqttTracking   = false;
 let geoWatchId     = null;
+let placesLayer    = L.layerGroup().addTo(map); // слой для меток заведений
+
+// ===== CSRF HELPER =====
+async function primeCsrf() {
+    console.debug('Priming CSRF token...');
+    try {
+        await fetch('/api/v1/auth/csrf');
+        console.debug('CSRF token primed successfully');
+    } catch (e) {
+        console.error('Failed to prime CSRF token', e);
+    }
+}
+
+function getCsrfToken() {
+    const name = "XSRF-TOKEN=";
+    const decodedCookie = decodeURIComponent(document.cookie);
+    const ca = decodedCookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(name) === 0) {
+            const token = c.substring(name.length, c.length);
+            console.debug('CSRF Token found:', token);
+            return token;
+        }
+    }
+    console.warn('CSRF Token NOT found in cookies!');
+    return "";
+}
+
+function getHeaders(extra = {}) {
+    const csrf = getCsrfToken();
+    const headers = {
+        'Authorization': 'Bearer ' + jwtToken,
+        'X-XSRF-TOKEN': csrf,
+        ...extra
+    };
+    return headers;
+}
+
+// ===== CSRF INIT =====
+primeCsrf();
 
 // GPS noise filtering
 let lastPublishedLat = null;
@@ -28,6 +69,7 @@ let lastPublishedAccuracy = null;
 const startIcon = L.divIcon({ className: '', html: `<div style="width:18px;height:18px;background:#fff;border:3px solid #222;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.6)"></div>`, iconAnchor: [9,9] });
 const endIcon   = L.divIcon({ className: '', html: `<div style="width:18px;height:18px;background:#222;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.8)"></div>`, iconAnchor: [9,9] });
 const myIcon    = L.divIcon({ className: '', html: `<div style="width:20px;height:20px;background:#4a9;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(68,170,100,0.25)"></div>`, iconAnchor: [10,10] });
+const placeIcon = L.divIcon({ className: '', html: `<div style="width:14px;height:14px;background:#22C55E;border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>`, iconAnchor: [7,7] });
 
 // ===== ROUTE STYLES =====
 const routeStyles = {
@@ -42,7 +84,76 @@ if (jwtToken) {
         const payload = JSON.parse(atob(jwtToken.split('.')[1]));
         currentUserId = payload.sub;
         setAuthStatus(true, payload.phone || '');
+        loadPopularPlaces(); // Загружаем места после входа
     } catch(e) { jwtToken = ''; localStorage.removeItem('uvi_jwt'); }
+}
+
+async function loadPopularPlaces() {
+    try {
+        const r = await fetch('/api/v1/places', {
+            headers: getHeaders()
+        });
+        if (!r.ok) return;
+        const places = await r.json();
+        renderPlacesOnMap(places);
+    } catch(e) { console.error('Failed to load places', e); }
+}
+
+function renderPlacesOnMap(places) {
+    placesLayer.clearLayers();
+    places.forEach(p => {
+        const marker = L.marker([p.latitude, p.longitude], { icon: placeIcon })
+            .bindPopup(`<b>${p.name}</b><br>${p.address || ''}<br><button class="btn-clear" style="font-size:0.7rem;padding:4px" onclick="setAsEnd(${p.latitude}, ${p.longitude}, '${p.name.replace(/'/g, "\\'")}')">Сюда →</button>`)
+            .addTo(placesLayer);
+    });
+}
+
+function setAsEnd(lat, lon, name) {
+    document.getElementById('endLat').value = lat;
+    document.getElementById('endLon').value = lon;
+    if (endMarker) map.removeLayer(endMarker);
+    endMarker = L.marker([lat, lon], { icon: endIcon }).addTo(map).bindPopup(`<b>Конец: ${name}</b>`).openPopup();
+    map.panTo([lat, lon]);
+}
+
+async function searchPlaces() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (query.length < 2) return;
+    const resultsEl = document.getElementById('searchResults');
+    resultsEl.innerHTML = '<div class="search-item">🔍 Поиск...</div>';
+    resultsEl.classList.add('active');
+
+    try {
+        const r = await fetch(`/api/v1/geocoding/search?query=${encodeURIComponent(query)}`, {
+            headers: getHeaders()
+        });
+        const data = await r.json();
+        resultsEl.innerHTML = '';
+        if (data.length === 0) {
+            resultsEl.innerHTML = '<div class="search-item">Ничего не найдено</div>';
+            return;
+        }
+        data.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'search-item';
+            div.innerHTML = `
+                <span class="search-item-type">${item.type}</span>
+                <span class="search-item-name">${item.name}</span>
+                <span class="search-item-addr">${item.address}</span>
+            `;
+            div.onclick = () => {
+                resultsEl.classList.remove('active');
+                map.flyTo([item.latitude, item.longitude], 16);
+                L.popup()
+                    .setLatLng([item.latitude, item.longitude])
+                    .setContent(`<b>${item.name}</b><br>${item.address}<br><button class="btn-clear" style="font-size:0.7rem;padding:4px" onclick="setAsEnd(${item.latitude}, ${item.longitude}, '${item.name.replace(/'/g, "\\'")}')">Сюда →</button>`)
+                    .openOn(map);
+            };
+            resultsEl.appendChild(div);
+        });
+    } catch(e) {
+        resultsEl.innerHTML = `<div class="search-item" style="color:red">Ошибка поиска</div>`;
+    }
 }
 
 function setAuthStatus(ok, phone) {
@@ -65,7 +176,7 @@ async function logout() {
     try {
         await fetch('/api/v1/auth/logout', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwtToken }
+            headers: getHeaders({ 'Content-Type': 'application/json' })
         });
     } catch(e) {
         // Logout still continues even if API call fails
@@ -73,6 +184,7 @@ async function logout() {
     jwtToken = ''; currentUserId = null;
     localStorage.removeItem('uvi_jwt');
     localStorage.removeItem('uvi_refresh_token');
+    placesLayer.clearLayers(); // Очищаем места при выходе
     setAuthStatus(false, '');
     stopMqtt();
 }
@@ -146,6 +258,8 @@ async function verifyCode() {
         if (d.expiresIn) {
             scheduleTokenRefresh(d.expiresIn);
         }
+        await primeCsrf(); // Обновляем CSRF после входа
+        loadPopularPlaces(); // Загружаем места после входа
         showStep('success');
     } catch(e) { showModalError('codeError', e.message); }
     finally { btn.disabled = false; btn.textContent = 'Войти ✓'; }
@@ -176,6 +290,8 @@ async function verify2fa() {
         if (d.expiresIn) {
             scheduleTokenRefresh(d.expiresIn);
         }
+        await primeCsrf(); // Обновляем CSRF после входа
+        loadPopularPlaces(); // Загружаем места после входа
         showStep('success');
     } catch(e) { showModalError('totpError', e.message); }
     finally { btn.disabled = false; btn.textContent = 'Подтвердить ✓'; }
@@ -289,7 +405,7 @@ async function calculateRoute() {
     try {
         const r = await fetch('/api/v1/routes/calculate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwtToken },
+            headers: getHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ startLat, startLon, endLat, endLon, mode: routeMode })
         });
         const data = await r.json();
@@ -542,7 +658,7 @@ function startMqtt() {
 
     // Подключаемся к Mosquitto WebSocket на порту 9001
     const clientId = 'uvi-web-' + Math.random().toString(36).substr(2, 8);
-    mqttClient = mqtt.connect('ws://10.248.49.239:9001', { clientId, keepalive: 30 });
+    mqttClient = mqtt.connect('ws://localhost:9001', { clientId, keepalive: 30 });
 
     mqttClient.on('connect', () => {
         setMqttStatus('ok', 'MQTT подключён');

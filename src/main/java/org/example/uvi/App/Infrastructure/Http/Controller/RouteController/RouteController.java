@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.uvi.App.Domain.Services.RouteService.RouteService;
-import org.example.uvi.App.Infrastructure.Http.Dto.RouteDto;
-import org.example.uvi.App.Infrastructure.Http.Dto.RouteRequest;
+import org.example.uvi.App.Infrastructure.Http.Dto.RouteDto.RouteDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.RouteDto.RouteRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

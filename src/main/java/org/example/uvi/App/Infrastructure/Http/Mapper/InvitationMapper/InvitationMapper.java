@@ -1,7 +1,7 @@
 package org.example.uvi.App.Infrastructure.Http.Mapper.InvitationMapper;
 
 import org.example.uvi.App.Domain.Models.Family.FamilyInvitation;
-import org.example.uvi.App.Infrastructure.Http.Dto.InvitationDto;
+import org.example.uvi.App.Infrastructure.Http.Dto.InvitationDto.InvitationDto;
 import org.springframework.stereotype.Component;
 
 @Component
